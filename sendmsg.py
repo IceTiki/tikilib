@@ -4,12 +4,13 @@ from email.mime.text import MIMEText
 from email.header import Header
 from urllib import parse
 import re
+
 # 第三方库
 import requests  # requests
 
 
 class Smtp:
-    '''Smtp发送类'''
+    """Smtp发送类"""
 
     def __init__(self, host: str, user: str, key: str, sender: str, receivers: list):
         """
@@ -24,13 +25,13 @@ class Smtp:
         self.key = key
         self.sender = sender
         self.receivers = receivers
-        self.configIsCorrect = self.isCorrectConfig()
 
-    def isCorrectConfig(self):
+    @property
+    def __is_config_correst(self):
         # 简单检查邮箱地址或API地址是否合法
         if type(self.receivers) != list:
             return 0
-        for item in [self.host, self.user, self.key, self.sender]+self.receivers:
+        for item in [self.host, self.user, self.key, self.sender] + self.receivers:
             if not type(item) == str:
                 return 0
             if len(item) == 0:
@@ -39,18 +40,18 @@ class Smtp:
                 return 0
         return 1
 
-    def sendmail(self, msg, title='no title'):
+    def send(self, msg, title="no title"):
         """发送邮件
         :param msg: 要发送的消息(自动转为字符串类型)
         :param title: 邮件标题(自动转为字符串类型)"""
         msg = str(msg)
         title = str(title)
-        if not self.configIsCorrect:
-            print('邮件配置出错')
-            return '邮件配置出错'
+        if not self.__is_config_correst:
+            print("邮件配置出错")
+            return "邮件配置出错"
         else:
-            mail = MIMEText(msg, 'plain', 'utf-8')
-            mail['Subject'] = Header(title, 'utf-8')
+            mail = MIMEText(msg, "plain", "utf-8")
+            mail["Subject"] = Header(title, "utf-8")
 
             smtpObj = smtplib.SMTP()
             smtpObj.connect(self.host, 25)
@@ -60,7 +61,7 @@ class Smtp:
 
 
 class Qmsg:
-    '''Qmsg发送类'''
+    """Qmsg发送类"""
 
     def __init__(self, key: str, qq: str, isGroup: bool = False):
         """
@@ -71,17 +72,17 @@ class Qmsg:
         self.key = key
         self.qq = qq
         self.isGroup = isGroup
-        self.configIsCorrect = self.isCorrectConfig()
 
-    def isCorrectConfig(self):
+    @property
+    def __is_config_correct(self):
         """简单检查配置是否合法"""
         if type(self.key) != str:
             return 0
         elif type(self.qq) != str:
             return 0
-        elif not re.match('^[0-9a-f]{32}$', self.key):
+        elif not re.match("^[0-9a-f]{32}$", self.key):
             return 0
-        elif not re.match('^\d+(,\d+)*$', self.qq):
+        elif not re.match("^\d+(,\d+)*$", self.qq):
             return 0
         else:
             return 1
@@ -92,26 +93,28 @@ class Qmsg:
         # msg：要发送的信息|消息推送函数
         msg = str(msg)
         # 简单检查配置
-        if not self.configIsCorrect:
-            print('Qmsg配置错误，信息取消发送')
+        if not self.__is_config_correct:
+            print("Qmsg配置错误，信息取消发送")
         else:
-            sendtype = 'group/' if self.isGroup else 'send/'
-            res = requests.post(url='https://qmsg.zendee.cn/'+sendtype +
-                                self.key, data={'msg': msg, 'qq': self.qq})
+            sendtype = "group/" if self.isGroup else "send/"
+            res = requests.post(
+                url="https://qmsg.zendee.cn/" + sendtype + self.key,
+                data={"msg": msg, "qq": self.qq},
+            )
             return str(res)
 
 
 class Pushplus:
-    '''Pushplus推送类'''
+    """Pushplus推送类"""
 
     def __init__(self, parameters: str):
         """
         :param parameters: "xxx"形式的令牌 或者 "token=xxx&topic=xxx&yyy=xxx"形式参数列表
         """
         self.parameters = parameters
-        self.configIsCorrect = self.isCorrectConfig()
 
-    def isCorrectConfig(self):
+    @property
+    def __is_config_correct(self):
         # 简单检查邮箱地址或API地址是否合法
         if not type(self.parameters) == str:
             return 0
@@ -124,26 +127,27 @@ class Pushplus:
         msg = msg.replace("\n", "</br>")
         title = str(title)
 
-        if self.configIsCorrect:
+        if self.__is_config_correct:
             if "=" in self.parameters:
                 params = parse.parse_qs(parse.urlparse(self.parameters).path)
                 for k in params:
                     params[k] = params[k][0]
-                params.update({'title': title, 'content': msg})
+                params.update({"title": title, "content": msg})
             else:
                 params = {
-                    'token': self.parameters,
-                    'title': title,
-                    'content': msg,
+                    "token": self.parameters,
+                    "title": title,
+                    "content": msg,
                 }
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:92.0) Gecko/20100101 Firefox/92.0'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:92.0) Gecko/20100101 Firefox/92.0"
             }
             res = requests.post(
-                "https://pushplus.hxtrip.com/send", headers=headers, params=params)
+                "https://pushplus.hxtrip.com/send", headers=headers, params=params
+            )
             if res.status_code == 200:
                 return "发送成功"
             else:
                 return "发送失败"
         else:
-            return 'pushplus的令牌填写错误，已取消发送！'
+            return "pushplus的令牌填写错误，已取消发送！"

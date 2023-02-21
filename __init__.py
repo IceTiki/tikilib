@@ -1,28 +1,6 @@
-# 标准库
-import random
-
-# from .file import *
-# from .sendmsg import *
-# from .crypto import *
-# from .math import *
-# from .enhance import *
-# from .image import *
-# from .plot import *
-
-
-class Misc:
-    """杂项"""
-
-    hex_chr = "0123456789ABCDEF"
-    word_chr = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-    @staticmethod
-    def random_hex(chara: str = hex_chr, len_: int = 8):
-        return "".join(random.choices(chara, k=len_))
-
-    @staticmethod
-    def random_word(chara: str = word_chr, len_: int = 8):
-        return "".join(random.choices(chara, k=len_))
+"""
+Tiki的常用函数库
+"""
 
 
 class Counter:

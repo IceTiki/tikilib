@@ -57,7 +57,7 @@ class Path:
             folder_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def folder_transfer_generator(
+    def transfer_generator(
         cla,
         from_dir,
         to_dir,

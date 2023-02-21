@@ -8,7 +8,7 @@ from Crypto.Cipher import AES  # pycryptodome
 class Hash:
     """Hashing String And File"""
     @staticmethod
-    def geneHashObj(hash_type):
+    def __gene_hash_obj(hash_type):
         if hash_type == 1:
             return _hashlib.sha1()
         elif hash_type == 224:
@@ -33,7 +33,7 @@ class Hash:
             raise Exception('类型错误, 初始化失败')
 
     @staticmethod
-    def fileHash(path, hash_type):
+    def file_hash(path, hash_type):
         """计算文件哈希
         :param path: 文件路径
         :param hash_type: 哈希算法类型
@@ -47,7 +47,7 @@ class Hash:
             3.384   sha3-384
             3.512   sha3-512
         """
-        hashObj = Hash.geneHashObj(hash_type)
+        hashObj = Hash.__gene_hash_obj(hash_type)
         if os.path.isfile(path):
             try:
                 with open(path, "rb") as f:
@@ -60,7 +60,7 @@ class Hash:
             raise Exception('路径错误, 没有指向文件: "%s"')
 
     @staticmethod
-    def strHash(str_: str, hash_type, charset='utf-8'):
+    def str_hash(str_: str, hash_type, charset='utf-8'):
         """计算字符串哈希
         :param str_: 字符串
         :param hash_type: 哈希算法类型
@@ -75,13 +75,13 @@ class Hash:
             3.384   sha3-384
             3.512   sha3-512
         """
-        hashObj = Hash.geneHashObj(hash_type)
+        hashObj = Hash.__gene_hash_obj(hash_type)
         bstr = str_.encode(charset)
         hashObj.update(bstr)
         return hashObj.hexdigest()
 
     @staticmethod
-    def bytesHash(bytes_: bytes, hash_type):
+    def bytes_hash(bytes_: bytes, hash_type):
         """计算字节串哈希
         :param bytes_: 字节串
         :param hash_type: 哈希算法类型
@@ -95,7 +95,7 @@ class Hash:
             3.384   sha3-384
             3.512   sha3-512
         """
-        hashObj = Hash.geneHashObj(hash_type)
+        hashObj = Hash.__gene_hash_obj(hash_type)
         hashObj.update(bytes_)
         return hashObj.hexdigest()
 
