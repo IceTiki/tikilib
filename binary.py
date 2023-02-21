@@ -1,7 +1,8 @@
 # 标准库
 import glob
 import os
-
+import pathlib
+from typing import Iterable
 
 # 第三方库
 import pandas as pd  # pandas
@@ -42,15 +43,16 @@ class Pdf_PyMuPDF:
         :params output: 输出文件夹
         """
         name = path[: path.rfind(".")]
-        pdf = fitz.open(path)
-        zx = zy = zoom
+        pdf = fitz.Document(path)
+        zx, zy = zoom, zoom
         if not os.path.isdir(output):
             os.makedirs(output)
 
         for i, page in enumerate(pdf):
             """逐页遍历"""
-            mat = fitz.Matrix(zx, zy).preRotate(0)  # 页面大小属性
-            rect = page.rect  # 页面总范围
+            page: fitz.Page
+            mat: fitz.Matrix = fitz.Matrix(zx, zy).preRotate(0)  # 页面大小属性
+            rect: fitz.Rect = page.rect  # 页面总范围
             b = rect.width
             h = rect.height
             db = b / division[0]
@@ -62,7 +64,7 @@ class Pdf_PyMuPDF:
                     clip = fitz.Rect(
                         db * xb, dh * yb, db * (xb + 1), dh * (yb + 1)
                     )  # 裁剪范围(x0, y0, x1, y1)
-                    pix = page.getPixmap(matrix=mat, clip=clip)
+                    pix: fitz.Pixmap = page.getPixmap(matrix=mat, clip=clip)
                     pix.writePNG(os.path.join(output, f"{name}_{i}_y{yb}x{xb}.png"))
 
     @staticmethod
@@ -72,7 +74,7 @@ class Pdf_PyMuPDF:
         :params pic_floder: 图片文件夹
         :params pdf_name: 输出的pdf名字(pdf保存在图片文件夹中)
         """
-        doc = fitz.open()
+        doc = fitz.Document()
         for img in sorted(
             glob.glob(os.path.join(pic_floder, "*.png"))
         ):  # 读取图片，确保按文件名排序
@@ -93,6 +95,46 @@ class Pdf_PyMuPDF:
 
         doc.save(save_pdf_path)  # 保存pdf文件
         doc.close()
+
+    @staticmethod
+    def split_pdf(origin_pdf: pathlib.Path, output_folder: pathlib.Path = None):
+        """
+        分割pdf
+        :param origin_pdf: 原始pdf
+        :param output_folder: 输出文件夹
+        """
+        origin_pdf = pathlib.Path(origin_pdf)
+        if output_folder == None:
+            output_folder = origin_pdf.parent
+
+        pdf = fitz.Document(origin_pdf)
+        output_pdf_path_list = []
+        for i in range(len(pdf)):
+            newpdf = fitz.Document()
+            newpdf.insert_pdf(pdf, i, i)
+
+            output_pdf_path = output_folder / f"{origin_pdf.stem}_p{i+1}.pdf"
+            output_pdf_path_list.append(output_pdf_path)
+
+            newpdf.save(output_pdf_path)
+        return output_pdf_path_list
+
+    @staticmethod
+    def combine_pdf(
+        origin_pdf_list: Iterable[pathlib.Path], output_pdf_path: pathlib.Path
+    ):
+        """
+        合并pdf
+        :param origin_pdf_list: (Iterable)原始pdf文件列表
+        :param output_pdf_path: 输出pdf文件
+        """
+        origin_pdf_list = [pathlib.Path(i) for i in origin_pdf_list]
+        output_pdf_path = pathlib.Path(output_pdf_path)
+        output_pdf = fitz.Document()
+        for i in origin_pdf_list:
+            pdf_tobe_insert = fitz.Document(i)
+            output_pdf.insert_pdf(pdf_tobe_insert)
+        output_pdf.save(output_pdf_path)
 
 
 class Zip_7z_py7zr:
