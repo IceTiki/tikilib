@@ -6,12 +6,6 @@ import imp
 import codecs
 import traceback
 
-# 第三方库
-import requests
-
-# 本库
-from .text import Random
-
 
 def enhance_init(workDir=__file__, python_version_require=0, check_module_list=[]):
     """
@@ -49,13 +43,6 @@ def enhance_init(workDir=__file__, python_version_require=0, check_module_list=[
         )
 
 
-def set_system_proxy(
-    http: str = "http://127.0.0.1:7890", https: str = "http://127.0.0.1:7890"
-):
-    os.environ["http_proxy"] = http
-    os.environ["https_proxy"] = https
-
-
 class Decorators:
     @staticmethod
     def except_all_error(func):
@@ -66,34 +53,6 @@ class Decorators:
                 print(traceback.format_exc())
 
         return new_func
-
-
-class ExResponse(requests.Response):
-    """requests.reqResponse的子类"""
-
-    def __init__(self, res: requests.Response):
-        self.__dict__.update(res.__dict__)
-
-    def json(self, *args, **kwargs):
-        """当解析失败的时候, 会print出响应内容"""
-        try:
-            return super(ExResponse, self).json(*args, **kwargs)
-        except Exception as e:
-            raise Exception(f"响应内容以json格式解析失败({e})，响应内容:\n\n{self.text}")
-
-
-class ExSession(requests.Session):
-    """requests.Session的子类"""
-
-    def request(self, *args, **kwargs):
-        """增添了请求的默认超时时间, 将返回值转换为reqResponse"""
-        kwargs.setdefault("timeout", (10, 30))
-        res = super(ExSession, self).request(*args, **kwargs)
-        return ExResponse(res)
-
-    def random_user_agent(self):
-        """随机生成User-Agent"""
-        self.headers["User-Agent"] = Random.random_user_agents()
 
 
 class FileOut:
