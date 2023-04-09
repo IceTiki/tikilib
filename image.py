@@ -1,8 +1,15 @@
-from PIL import Image  # 导入pillow库下的image模块，主要用于图片缩放、图片灰度化、获取像素灰度值
+# 标准库
 import io
 from functools import partial
 from pathlib import Path
+from typing import Iterable
+
+# 第三方库
 import numpy as np
+from PIL import Image  # pillow
+import cv2 as _cv2  # opencv-python
+
+
 
 
 class Dhash:
@@ -33,16 +40,12 @@ class Dhash:
         """
         计算Dhash
         """
-        hash_string = ""  # 定义空字符串的变量，用于后续构造比较后的字符串
         pixels = list(self.image.getdata())
-        # 上一个函数grayscale_Image()缩放图片并返回灰度化图片，.getdata()方法可以获得每个像素的灰度值，使用内置函数list()将获得的灰度值序列化
-        for row in range(1, len(pixels) + 1):  # 获取pixels元素个数，从1开始遍历
-            if row % self.resize[0]:  # 因不同行之间的灰度值不进行比较，当与宽度的余数为0时，即表示当前位置为行首位，我们不进行比较
-                if pixels[row - 1] > pixels[row]:  # 当前位置非行首位时，我们拿前一位数值与当前位进行比较
-                    hash_string += "1"  # 当为真时，构造字符串为1
-                else:
-                    hash_string += "0"  # 否则，构造字符串为0
-            # 最后可得出由0、1组64位数字字符串，可视为图像的指纹
+        hash_string = "".join(
+            "1" if pixels[row - 1] > pixels[row] else "0"
+            for row in range(1, len(pixels) + 1)
+            if row % self.resize[0]
+        )
         return int(hash_string, 2)  # 把64位数当作2进制的数值并转换成十进制数值
 
     def __sub__(self, dhash):
@@ -70,6 +73,19 @@ class Dhash:
         return bin(difference).count("1")
 
 
+def img2gif(imgs: Iterable, output: Path, **kwargs):
+    """
+    图像转gif
+    :param imgs: 图片
+    :param output: gif输出(str | Path | file object)
+    """
+    kwargs.setdefault("save_all", True)
+    kwargs.setdefault("loop", True)
+    imgs = [Image.open(img) for img in imgs]
+
+    imgs[0].save(output, append_images=imgs[1:], **kwargs)
+
+
 def wechat_image_decode(dat_dir: Path, img_dir: Path = None):
     """
     解码dat或rst文件为图片
@@ -93,7 +109,7 @@ def wechat_image_decode(dat_dir: Path, img_dir: Path = None):
                 img_suffix, img_xor = may_suffix, may_head[0]
                 break
         else:
-            raise Exception("未知数据格式")
+            raise ValueError("未知数据格式")
         # 准备转码
         dat_file_read.seek(0)
         img_dir = img_dir.with_suffix(img_suffix)
