@@ -1,13 +1,14 @@
 # 标准库
-import glob
 import os
-import pathlib
-from typing import Iterable
+import pathlib as _pathlib
+from typing import Iterable, Any
+from dataclasses import dataclass
 
 # 第三方库
 import pandas as pd  # pandas
 import fitz  # fitz, PyMuPDF
-import py7zr  # py7zr
+import py7zr as _py7zr  # py7zr
+import imghdr
 
 
 # class LI:
@@ -23,13 +24,29 @@ import py7zr  # py7zr
 #             raise AttributeError(__name)
 
 
-class Excel_PandasRead:
-    def __init__(self, fileName, tableName):
-        self.data = pd.read_excel(fileName, tableName)
-        self.shape = self.data.shape  # 形状:tuple(行数:int, 列数:int)
-        self.index = list(self.data.columns)  # 列标题(首行):list[str]
-        # 逐行数据(但不包括首行(列标题)):list[list]
-        self.rowData = self.data.values.tolist()
+class PandasExcel:
+    @dataclass
+    class ExcelData:
+        data: Any
+        shape: tuple
+        index: list[str]
+        row_data: list  # 逐行数据(但不包括首行(列标题)):list[list]
+
+    def __init__(self, file_path, sheet_name):
+        self.file_path = file_path
+        self.sheet_name = sheet_name
+
+    def read(self):
+        data = pd.read_excel(self.file_path, self.sheet_name)
+        shape = data.shape  # 形状:tuple(行数:int, 列数:int)
+        index = list(data.columns)  # 列标题(首行):list[str]
+        rowData = data.values.tolist()
+        return self.ExcelData(data, shape, index, rowData)
+
+    def write(self, data, **kwargs):
+        kwargs.setdefault("index", False)
+        kwargs.setdefault("header", True)
+        pd.DataFrame(data).to_excel(self.file_path, self.sheet_name, **kwargs)
 
 
 class MuPDF:
@@ -139,7 +156,6 @@ class MuPDF:
         origin_pdf = _pathlib.Path(origin_pdf)
         output_pdf = output_pdf or origin_pdf.with_stem(f"{origin_pdf.stem}_A4")
 
-class Zip_7z_py7zr:
         src = fitz.Document(origin_pdf)
         doc = fitz.Document()
         for ipage in src:
@@ -156,6 +172,7 @@ class Zip_7z_py7zr:
         doc.save(output_pdf)
 
 
+class Py7zr:
     """7z压缩包相关(无需初始化, 调用静态函数即可)"""
 
     @staticmethod
@@ -166,7 +183,7 @@ class Zip_7z_py7zr:
         7z解压
         """
         password = password if password else None
-        with py7zr.SevenZipFile(zip_path, password=password, mode="r", **kwargs) as z:
+        with _py7zr.SevenZipFile(zip_path, password=password, mode="r", **kwargs) as z:
             z.extractall(output_folder)
 
     @staticmethod
@@ -179,16 +196,16 @@ class Zip_7z_py7zr:
             crypyto_kwargs = {
                 "header_encryption": True,
                 "filters": [
-                    {"id": py7zr.FILTER_COPY},
-                    {"id": py7zr.FILTER_CRYPTO_AES256_SHA256},
+                    {"id": _py7zr.FILTER_COPY},
+                    {"id": _py7zr.FILTER_CRYPTO_AES256_SHA256},
                 ],
             }
         else:
             crypyto_kwargs = {
                 "header_encryption": False,
-                "filters": [{"id": py7zr.FILTER_COPY}],
+                "filters": [{"id": _py7zr.FILTER_COPY}],
             }
-        with py7zr.SevenZipFile(
+        with _py7zr.SevenZipFile(
             zip_path, password=password, mode="w", **crypyto_kwargs, **kwargs
         ) as z:
             z.writeall(input_folder)
@@ -201,7 +218,7 @@ class Zip_7z_py7zr:
             压缩包无密码时任何密码都正确, 出现其他错误时也会返回False
         """
         try:
-            zipfile = py7zr.SevenZipFile(zip_path, password=password, mode="r")
+            zipfile = _py7zr.SevenZipFile(zip_path, password=password, mode="r")
             zipfile.close()
             return True
         except Exception:
@@ -211,5 +228,5 @@ class Zip_7z_py7zr:
     def test(zip_path: str, password: str = None):
         """测试压缩包中各个文件的CRC值"""
         password = password if password else None
-        with py7zr.SevenZipFile(zip_path, password=password, mode="r") as z:
+        with _py7zr.SevenZipFile(zip_path, password=password, mode="r") as z:
             return z.test()
