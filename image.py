@@ -10,6 +10,80 @@ from PIL import Image  # pillow
 import cv2 as _cv2  # opencv-python
 
 
+class CvOperation:
+    """
+    基于opencv模块产生的numpy数组, 进行各种操作
+    """
+
+    @classmethod
+    def put_on_canvas_slice(cla, canvas_shape: tuple, img_shape: tuple, align="center"):
+        """
+        :params canvas_shape, img_shape: 幕布形状, 图片形状(先高后宽)
+        将img叠加在canvas上(返回叠加切片)
+        使用方法:
+            canvas[*put_on_canvas_slice(canvas.shape, img.shape, align), :]
+        """
+        # todo检查img长宽都比canvas小
+        canvas_high, canvas_width = canvas_shape[:2]
+        img_high, img_width = img_shape[:2]
+
+        high_center = slice(
+            int((canvas_high - img_high) / 2),
+            int((canvas_high + img_high) / 2),
+        )
+        width_center = slice(
+            int((canvas_width - img_width) / 2),
+            int((canvas_width + img_width) / 2),
+        )
+        slice_top = slice(0, img_high)
+        slice_bottom = slice(canvas_high - img_high, canvas_high)
+        slice_left = slice(0, img_width)
+        slice_right = slice(canvas_width - img_width, canvas_width)
+
+        if align == "center":
+            result_slice = high_center, width_center
+        elif align == "top":
+            result_slice = slice_top, width_center
+        elif align == "bottom":
+            result_slice = slice_bottom, width_center
+        elif align == "left":
+            result_slice = high_center, slice_left
+        elif align == "right":
+            result_slice = high_center, slice_right
+        else:
+            raise ValueError(f'不支持的对齐方式"{align}" (param align)')
+        return tuple(result_slice)
+
+    @classmethod
+    def put_on_canvas(cla, canvas: np.ndarray, img: np.ndarray, align="center"):
+        """
+        将img叠加在canvas上
+        """
+        img = cla.resize_on_canvas(canvas, img)
+        canvas = canvas.copy()
+        canvas[*cla.put_on_canvas_slice(canvas.shape, img.shape, align), :] = img
+        return canvas
+
+    @staticmethod
+    def resize_on_canvas(canvas: np.ndarray, img: np.ndarray) -> np.ndarray:
+        """
+        将img调整到刚好能放置在canvas上(长或宽一致)
+        返回调整后的img
+        """
+        # cv2.resize先宽后高, np.ndarray.shape先高后宽
+        # canvas_shape = canvas.shape[1::-1]
+        # img_shape = img.shape[1::-1]
+        canvas_high, canvas_width, _ = canvas.shape
+        img_high, img_width, _ = img.shape
+
+        width_ratio = img_width / canvas_width
+        high_ratio = img_high / canvas_high
+        new_scale = max(width_ratio, high_ratio)
+        if width_ratio >= high_ratio:
+            new_shape = (canvas_width, int(img_high / new_scale))
+        else:
+            new_shape = (int(img_width / new_scale), canvas_high)
+        return _cv2.resize(img, new_shape)
 
 
 class Dhash:
