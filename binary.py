@@ -32,7 +32,7 @@ class Excel_PandasRead:
         self.rowData = self.data.values.tolist()
 
 
-class Pdf_PyMuPDF:
+class MuPDF:
     @staticmethod
     def pdf2png(path="a.pdf", zoom=2, division=(1, 1), output="image"):
         """
@@ -68,42 +68,39 @@ class Pdf_PyMuPDF:
                     pix.writePNG(os.path.join(output, f"{name}_{i}_y{yb}x{xb}.png"))
 
     @staticmethod
-    def png2pdf(pic_floder="image", pdf_name="image.pdf"):
+    def img2pdf(
+        pic_iter=_pathlib.Path(".").iterdir(),
+        pdf_name="images.pdf",
+        filter_=imghdr.what,
+    ):
         """
-        png转pdf
-        :params pic_floder: 图片文件夹
+        图片转pdf
+        :params pic_iter: 图片列表
         :params pdf_name: 输出的pdf名字(pdf保存在图片文件夹中)
+        :params filter_: 过滤器
         """
-        doc = fitz.Document()
-        for img in sorted(
-            glob.glob(os.path.join(pic_floder, "*.png"))
-        ):  # 读取图片，确保按文件名排序
-            print(img)
-            imgdoc: fitz.Document = fitz.open(img)  # 打开图片
-            pdfbytes = imgdoc.convertToPDF()  # 使用图片创建单页的 PDF
-            imgpdf = fitz.open("pdf", pdfbytes)
-            doc.insertPDF(imgpdf)  # 将当前页插入文档
+        pic_iter = filter(filter_, pic_iter)
+        with fitz.Document() as doc:
+            for img in pic_iter:
+                imgdoc: fitz.Document = fitz.Document(img)  # 打开图片
+                pdfbytes = imgdoc.convertToPDF()  # 使用图片创建单页的 PDF
+                imgpdf = fitz.open("pdf", pdfbytes)
+                doc.insertPDF(imgpdf)  # 将当前页插入文档
 
-        # 修订PDF文件名
-        if not pdf_name.endswith(".pdf"):
-            pdf_name += ".pdf"
+            pdf_name = _pathlib.Path(pdf_name)
 
-        # 保存在图片文件夹下
-        save_pdf_path = os.path.join(pic_floder, pdf_name)
-        if os.path.exists(save_pdf_path):
-            os.remove(save_pdf_path)
-
-        doc.save(save_pdf_path)  # 保存pdf文件
-        doc.close()
+            # 保存在图片文件夹下
+            pdf_name.parent.mkdir(exist_ok=True, parents=True)
+            doc.save(pdf_name)  # 保存pdf文件
 
     @staticmethod
-    def split_pdf(origin_pdf: pathlib.Path, output_folder: pathlib.Path = None):
+    def split_pdf(origin_pdf: _pathlib.Path, output_folder: _pathlib.Path = None):
         """
         分割pdf
         :param origin_pdf: 原始pdf
         :param output_folder: 输出文件夹
         """
-        origin_pdf = pathlib.Path(origin_pdf)
+        origin_pdf = _pathlib.Path(origin_pdf)
         if output_folder == None:
             output_folder = origin_pdf.parent
 
@@ -121,23 +118,44 @@ class Pdf_PyMuPDF:
 
     @staticmethod
     def combine_pdf(
-        origin_pdf_list: Iterable[pathlib.Path], output_pdf_path: pathlib.Path
+        origin_pdf_list: Iterable[_pathlib.Path], output_pdf_path: _pathlib.Path
     ):
         """
         合并pdf
         :param origin_pdf_list: (Iterable)原始pdf文件列表
         :param output_pdf_path: 输出pdf文件
         """
-        origin_pdf_list = [pathlib.Path(i) for i in origin_pdf_list]
-        output_pdf_path = pathlib.Path(output_pdf_path)
+        origin_pdf_list = [_pathlib.Path(i) for i in origin_pdf_list]
+        output_pdf_path = _pathlib.Path(output_pdf_path)
         output_pdf = fitz.Document()
         for i in origin_pdf_list:
             pdf_tobe_insert = fitz.Document(i)
             output_pdf.insert_pdf(pdf_tobe_insert)
         output_pdf.save(output_pdf_path)
 
+    @staticmethod
+    def pdf_to_a4(origin_pdf: _pathlib.Path, output_pdf: _pathlib.Path = None):
+        # TODO可用, 但测试中
+        origin_pdf = _pathlib.Path(origin_pdf)
+        output_pdf = output_pdf or origin_pdf.with_stem(f"{origin_pdf.stem}_A4")
 
 class Zip_7z_py7zr:
+        src = fitz.Document(origin_pdf)
+        doc = fitz.Document()
+        for ipage in src:
+            rotation = ipage.rotation
+            if rotation in {90, 270}:
+                fmt = fitz.paper_rect("a4-l")
+                ipage.set_rotation(0)
+            else:
+                fmt = fitz.paper_rect("a4")
+            page: fitz.Page = doc.new_page(width=fmt.width, height=fmt.height)
+            page.show_pdf_page(page.rect, src, ipage.number)
+            page.set_rotation(rotation)
+        src.close()
+        doc.save(output_pdf)
+
+
     """7z压缩包相关(无需初始化, 调用静态函数即可)"""
 
     @staticmethod
