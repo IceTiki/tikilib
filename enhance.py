@@ -45,14 +45,15 @@ def enhance_init(workDir=__file__, python_version_require=0, check_module_list=[
 
 class Decorators:
     @staticmethod
-    def except_all_error(func):
-        def new_func(*args, **kwargs):
+    def catch_exception(func):
+        def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except Exception as e:
+            except Exception:
                 print(traceback.format_exc())
+                return None
 
-        return new_func
+        return wrapper
 
 
 class FileOut:
