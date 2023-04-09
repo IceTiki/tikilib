@@ -10,6 +10,309 @@ from PIL import Image  # pillow
 import cv2 as _cv2  # opencv-python
 
 
+class CvBlending:
+    """
+    基于opencv模块产生的numpy数组(目前只能处理unsign int8类型的BGR数组), 对图片叠加提供混合模式。
+    混合模式的效果会尽量贴近Photoshop, 但会略有不同(因为数据类型等原因, 会有微量差异)
+
+    参考
+    ---
+    公式参考: https://blog.csdn.net/onafioo/article/details/54232689
+        ps图层混合计算公式
+            注意, 图片中的公式有些mask是<=128, 实际上是<128
+            另外, 点光中B>=128时, 使用max而不是min
+    原理参考: https://www.zhihu.com/question/22883942/answer/35657823
+        如何通俗易懂的理解 Photoshop 中，关于图层混合模式那11大种类的意思？ - 宋顺宁.Seany的回答 - 知乎
+    公式参考: https://zhuanlan.zhihu.com/p/23905865
+        一篇文章彻底搞清PS混合模式的原理 - 以梦为马的文章 - 知乎
+
+    数据处理
+    ---
+    经过调试, 为了接近PhotoShop的效果, 可以对数据做以下处理
+        使用np.maximum(x, 1)避免被除数为0
+        最终结果用np.clip(x, 0, 255)避免负数和超过255
+
+    Numpy特性
+    ---
+    numpy中unsign类型如果出现负数, 则会从最大值开始减。
+        比如a = np.array([4,4,4], dtype=np.uint8)
+        那么-a = [252, 252, 252]
+        但-1*a = [-4, -4, -4], 因为-1自动被广播为数组, 而且类型变为int16(因为int16才能装完uint8的正数)
+    使用「/」, numpy会自动将数组转为float64类型。使用「//」, numpy会保留int类型。
+    用mask(掩码)会将数组一维化
+    可以对bool数组使用乘法, True视为1, Flase视为0
+
+    色彩特性
+    ---
+    浅色和深色的实现中, 尝试过HSV的V、HSL和L、平均灰度来表示明度。最终opencv的加权灰度最符合photoshop效果。
+
+    杂项
+    ---
+    灰度计算公式 https://blog.csdn.net/kuweicai/article/details/73414138
+        Gray = (4898*R + 9618*G + 1868*B) >> 14
+    Adobe的色彩空间
+        https://www.zhihu.com/question/62362890/answer/345690499
+        PS混合模式中色相、饱和度、颜色、明度4个模式的计算公式是什么？ - 卡米雷特的回答 - 知乎
+    """
+
+    def __set_dtype_for_param_and_return(
+        param_type=np.int32, return_type=np.uint8, return_clip=None
+    ):
+        """
+        :param return_clip: (tuple)将返回值限定在一定范围(min, max)
+        """
+
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                change_param = lambda x: (
+                    np.array(x, dtype=param_type) if isinstance(x, np.ndarray) else x
+                )
+                args = (change_param(i) for i in args)
+                kwargs = {change_param(i): j for i, j in kwargs}
+                result = func(*args, **kwargs)
+                if return_clip:
+                    return np.array(np.clip(result, *return_clip), return_type)
+
+                return np.array(result, return_type)
+
+            return wrapper
+
+        return decorator
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def invert(img: np.ndarray):
+        """反相"""
+        return 255 - img
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def transparent(img_1: np.ndarray, img_2: np.ndarray, alpha: np.ndarray):
+        """不透明度"""
+        return (img_1 * alpha + img_2 * (255 - alpha)) // 255
+
+    # 变暗模式
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def dark(img_1: np.ndarray, img_2: np.ndarray):
+        """变暗"""
+        return np.minimum(img_1, img_2)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def multiply(img_1: np.ndarray, img_2: np.ndarray):
+        """正片叠底"""
+        return img_1 * img_2 // 255
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def color_burn(img_1: np.ndarray, img_2: np.ndarray):
+        """颜色加深"""
+        return img_1 - np.minimum(
+            img_1,  # np.minimum避免出现负数
+            (255 - img_1) * (255 - img_2) // np.maximum(img_2, 1),  # np.maximum避免出现除数为0
+        )
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.int16)
+    def linear_burn(img_1: np.ndarray, img_2: np.ndarray):
+        """线性加深"""
+        return np.maximum(img_1 + img_2 - 255, 0)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def darker_color(img_1: np.ndarray, img_2: np.ndarray):
+        """深色"""
+        mask = _cv2.cvtColor(img_2, _cv2.COLOR_BGR2GRAY) <= _cv2.cvtColor(
+            img_1, _cv2.COLOR_BGR2GRAY
+        )
+        mask = np.expand_dims(mask, 2).repeat(3, axis=2)
+        return np.where(mask, img_2, img_1)
+
+    # 变亮模式
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def lighten(img_1: np.ndarray, img_2: np.ndarray):
+        """变亮"""
+        return np.maximum(img_1, img_2)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def screen(img_1: np.ndarray, img_2: np.ndarray):
+        """滤色"""
+        return 255 - ((255 - img_1) * (255 - img_2)) // 255
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def color_dodge(img_1: np.ndarray, img_2: np.ndarray):
+        """颜色减淡"""
+        return np.minimum(255, img_1 + img_1 * img_2 // np.maximum(255 - img_2, 1))
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def linear_dodge(img_1: np.ndarray, img_2: np.ndarray):
+        """线性减淡(添加)"""
+        return img_1 + np.minimum(255 - img_1, img_2)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def lighter_color(img_1: np.ndarray, img_2: np.ndarray):
+        """浅色"""
+        mask = _cv2.cvtColor(img_2, _cv2.COLOR_BGR2GRAY) >= _cv2.cvtColor(
+            img_1, _cv2.COLOR_BGR2GRAY
+        )
+        mask = np.expand_dims(mask, 2).repeat(3, axis=2)
+        return np.where(mask, img_2, img_1)
+
+    # 饱和度模式
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def overlay(img_1: np.ndarray, img_2: np.ndarray):
+        """叠加"""
+        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        mask = img_1 < 128
+        invert_mask = ~mask
+        result[mask] = img_1[mask] * img_2[mask] // 128
+        result[invert_mask] = 255 - (
+            (255 - img_1[invert_mask]) * (255 - img_2[invert_mask]) // 128
+        )
+        return result
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def soft_light(img_1: np.ndarray, img_2: np.ndarray):
+        """柔光"""
+        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+
+        # mask
+        mask = img_2 < 128
+        img_m1, img_m2 = img_1[mask], img_2[mask]
+
+        result[mask] = (
+            img_m1 * img_m2 // 128
+            + (img_m1 * img_m1) // 255 * (255 - 2 * img_m2) // 255
+        )
+
+        # invert_mask
+        invert_mask = ~mask
+        img_im1, img_im2 = img_1[invert_mask], img_2[invert_mask]
+
+        res_2t = 2 * img_im2 - 255
+        result[invert_mask] = img_im1 * (255 - img_im2) // 128 + np.sqrt(
+            img_im1 * res_2t // 255 * res_2t
+        )
+        return np.minimum(255, result)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def hard_light(img_1: np.ndarray, img_2: np.ndarray):
+        """强光"""
+        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        mask = img_2 < 128
+        result[mask] = img_1[mask] * img_2[mask] // 128
+        result[~mask] = 255 - (255 - img_1[~mask]) * (255 - img_2[~mask]) // 128
+        return result
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def vivid_light(img_1: np.ndarray, img_2: np.ndarray):
+        """亮光"""
+        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+
+        # mask
+        mask = img_2 < 128
+        img_m1, img_m2 = img_1[mask], img_2[mask]
+
+        img_m2_double = 2 * img_m2
+        result[mask] = img_m1 - np.minimum(  #  np.minimum避免出现负数
+            img_m1,
+            (255 - img_m1)
+            * (255 - img_m2_double)
+            // np.maximum(1, img_m2_double),  #  np.maximum避免被除数为0
+        )
+
+        # invert_mask
+        invert_mask = ~mask
+        img_im1, img_im2 = img_1[invert_mask], img_2[invert_mask]
+
+        result[invert_mask] = np.minimum(
+            255, img_im1 + img_im1 * (2 * img_im2 - 255) // (2 * (255 - img_im2))
+        )
+        return result
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.int16)
+    def linear_light(img_1: np.ndarray, img_2: np.ndarray):
+        """线性光"""
+        return np.clip(img_1 + 2 * img_2 - 255, 0, 255)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def pin_light(img_1: np.ndarray, img_2: np.ndarray):
+        """点光"""
+        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+
+        # mask
+        mask = img_2 < 128
+        img_m1, img_m2 = img_1[mask], img_2[mask]
+
+        result[mask] = np.minimum(img_m1, 2 * img_m2)
+
+        # invert_mask
+        invert_mask = ~mask
+        img_im1, img_im2 = img_1[invert_mask], img_2[invert_mask]
+
+        result[invert_mask] = np.maximum(img_im1, 2 * (img_im2 - 128) + 1)
+        return result
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def hard_mix(img_1: np.ndarray, img_2: np.ndarray):
+        """实色混合"""
+        return np.where(
+            255 - img_1 < img_2,
+            np.array(255, dtype=img_1.dtype),
+            np.array(0, dtype=img_1.dtype),
+        )
+
+    # 差集模式
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def difference(img_1: np.ndarray, img_2: np.ndarray):
+        """差值"""
+        return np.where(
+            img_1 >= img_2, img_1 - img_2, img_2 - img_1
+        )  # 等价于np.abs(img_1 - img_2)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def exclusion(img_1: np.ndarray, img_2: np.ndarray):
+        """排除"""
+        return img_1 + img_2 - img_1 * img_2 // 128
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def subtract(img_1: np.ndarray, img_2: np.ndarray):
+        """减去"""
+        return np.where(img_1 >= img_2, img_1 - img_2, 0)
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint16)
+    def divide(img_1: np.ndarray, img_2: np.ndarray):
+        """划分"""
+        return np.minimum(255, img_1 * 255 // np.maximum(1, img_2))
+
+    # 颜色模式(HSL系)
+    # todo色相
+    # todo饱和度
+    # todo颜色
+    # todo明度
+
+
 class CvOperation:
     """
     基于opencv模块产生的numpy数组, 进行各种操作
