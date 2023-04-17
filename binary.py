@@ -1,7 +1,7 @@
 # 标准库
 import os
 import pathlib as _pathlib
-from typing import Iterable, Any
+from typing import Iterable, Any, Union, Callable
 from dataclasses import dataclass
 
 # 第三方库
@@ -49,60 +49,91 @@ class PandasExcel:
         pd.DataFrame(data).to_excel(self.file_path, self.sheet_name, **kwargs)
 
 
-class MuPDF:
+class MuPdf:
     @staticmethod
-    def pdf2png(path="a.pdf", zoom=2, division=(1, 1), output="image"):
+    def pdf2png(
+        pdf_path: Union[str, _pathlib.Path] = "a.pdf",
+        zoom: Union[int, tuple[int, int]] = 2,
+        division: tuple[int, int] = (1, 1),
+        output_folder: Union[str, _pathlib.Path] = "image",
+    ):
         """
         将pdf转为png
-        :params path: pdf路径
-        :params zoom: 放大系数(与图片清晰度有关)
-        :params division: 将每一页(水平方向, 垂直方向)分割为n份
-        :params output: 输出文件夹
-        """
-        name = path[: path.rfind(".")]
-        pdf = fitz.Document(path)
-        zx, zy = zoom, zoom
-        if not os.path.isdir(output):
-            os.makedirs(output)
 
-        for i, page in enumerate(pdf):
+        Parameters
+        ---
+        pdf_path : str | pathlib.Path
+            pdf路径
+        zoom : int | tuple[int, int]
+            放大系数(与图片清晰度有关)(如果是元组, 则先宽后高)
+        division : tuple[int, int]
+            将每一页(水平方向, 垂直方向)分割为n份
+        output_folder : str | pathlib.Path
+            输出文件夹
+
+        Note
+        ---
+        pixmap支持的保存图片格式见https://pymupdf.readthedocs.io/en/latest/pixmap.html#supported-output-image-formats
+        """
+        pdf_path, output_folder = map(_pathlib.Path, (pdf_path, output_folder))
+        name = pdf_path.stem
+        pdf = fitz.Document(pdf_path)
+        if isinstance(zoom, int):
+            zoom = tuple((zoom, zoom))
+
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        for page_number, page in enumerate(pdf):
             """逐页遍历"""
             page: fitz.Page
-            mat: fitz.Matrix = fitz.Matrix(zx, zy).preRotate(0)  # 页面大小属性
+            mat: fitz.Matrix = fitz.Matrix(*zoom).prerotate(0)  # 页面大小属性
             rect: fitz.Rect = page.rect  # 页面总范围
-            b = rect.width
-            h = rect.height
-            db = b / division[0]
-            dh = h / division[1]
-            for xb in range(division[0]):
-                for yb in range(division[1]):
+            width = rect.width
+            height = rect.height
+            delta_width = width / division[0]
+            delta_height = height / division[1]
+            for x_index in range(division[0]):
+                for y_index in range(division[1]):
                     """逐个切图"""
-                    print(xb, yb)
+                    print(
+                        f"processing: {x_index}/{division[0]}-{y_index}/{division[1]}"
+                    )
                     clip = fitz.Rect(
-                        db * xb, dh * yb, db * (xb + 1), dh * (yb + 1)
+                        delta_width * x_index,
+                        delta_height * y_index,
+                        delta_width * (x_index + 1),
+                        delta_height * (y_index + 1),
                     )  # 裁剪范围(x0, y0, x1, y1)
-                    pix: fitz.Pixmap = page.getPixmap(matrix=mat, clip=clip)
-                    pix.writePNG(os.path.join(output, f"{name}_{i}_y{yb}x{xb}.png"))
+                    pix: fitz.Pixmap = page.get_pixmap(matrix=mat, clip=clip)
+                    pix.save(
+                        output_folder / f"{name}_{page_number}_y{y_index}x{x_index}.png"
+                    )
 
     @staticmethod
     def img2pdf(
-        pic_iter=_pathlib.Path(".").iterdir(),
-        pdf_name="images.pdf",
-        filter_=imghdr.what,
+        pic_iter: Iterable[Union[str, _pathlib.Path]] = _pathlib.Path(".").iterdir(),
+        pdf_name: Union[str, _pathlib.Path] = "images.pdf",
+        filter_: Callable = imghdr.what,
     ):
         """
         图片转pdf
-        :params pic_iter: 图片列表
-        :params pdf_name: 输出的pdf名字(pdf保存在图片文件夹中)
-        :params filter_: 过滤器
+
+        Parameters
+        ---
+        pic_iter : Iterable[str | pathlib.Path]
+            图片列表
+        pdf_name : str | pathlib.Path
+            输出的pdf名字(pdf保存在图片文件夹中)
+        filter_ : Callable
+            过滤器
         """
         pic_iter = filter(filter_, pic_iter)
         with fitz.Document() as doc:
             for img in pic_iter:
                 imgdoc: fitz.Document = fitz.Document(img)  # 打开图片
-                pdfbytes = imgdoc.convertToPDF()  # 使用图片创建单页的 PDF
+                pdfbytes = imgdoc.convert_to_pdf()  # 使用图片创建单页的 PDF
                 imgpdf = fitz.open("pdf", pdfbytes)
-                doc.insertPDF(imgpdf)  # 将当前页插入文档
+                doc.insert_pdf(imgpdf)  # 将当前页插入文档
 
             pdf_name = _pathlib.Path(pdf_name)
 
@@ -111,15 +142,23 @@ class MuPDF:
             doc.save(pdf_name)  # 保存pdf文件
 
     @staticmethod
-    def split_pdf(origin_pdf: _pathlib.Path, output_folder: _pathlib.Path = None):
+    def split_pdf(
+        origin_pdf: Union[str, _pathlib.Path],
+        output_folder: Union[str, _pathlib.Path] = None,
+    ):
         """
         分割pdf
-        :param origin_pdf: 原始pdf
-        :param output_folder: 输出文件夹
+
+        Parameters
+        ---
+        origin_pdf : str | pathlib.Path
+            原始pdf
+        output_folder: str | pathlib.Path
+            输出文件夹(默认为原始pdf的文件夹)
         """
         origin_pdf = _pathlib.Path(origin_pdf)
-        if output_folder == None:
-            output_folder = origin_pdf.parent
+        output_folder = output_folder or origin_pdf.parent
+        output_folder = _pathlib.Path(output_folder)
 
         pdf = fitz.Document(origin_pdf)
         output_pdf_path_list = []
@@ -135,17 +174,23 @@ class MuPDF:
 
     @staticmethod
     def combine_pdf(
-        origin_pdf_list: Iterable[_pathlib.Path], output_pdf_path: _pathlib.Path
+        origin_pdf_iter: Iterable[Union[str, _pathlib.Path]],
+        output_pdf_path: Union[str, _pathlib.Path],
     ):
         """
         合并pdf
-        :param origin_pdf_list: (Iterable)原始pdf文件列表
-        :param output_pdf_path: 输出pdf文件
+
+        Parameters
+        ---
+        origin_pdf_iter : Iterable[str | pathlib.Path]]
+            原始pdf文件列表
+        output_pdf_path : str | _pathlib.Path
+            输出pdf文件
         """
-        origin_pdf_list = [_pathlib.Path(i) for i in origin_pdf_list]
+        origin_pdf_iter = [_pathlib.Path(i) for i in origin_pdf_iter]
         output_pdf_path = _pathlib.Path(output_pdf_path)
         output_pdf = fitz.Document()
-        for i in origin_pdf_list:
+        for i in origin_pdf_iter:
             pdf_tobe_insert = fitz.Document(i)
             output_pdf.insert_pdf(pdf_tobe_insert)
         output_pdf.save(output_pdf_path)
