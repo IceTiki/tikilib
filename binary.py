@@ -1,59 +1,88 @@
 # 标准库
-import pathlib as __pathlib
-import typing as __typing
-from dataclasses import dataclass as __dataclass
+import pathlib as _pathlib
+import typing as _typing
 
 # 第三方库
-import pandas as __pd  # pandas
-import fitz as __fitz  # fitz, PyMuPDF
-import py7zr as __py7zr  # py7zr
-import imghdr as __imghdr
+import pandas as _panda  # pandas
+import fitz as _fitz  # fitz, PyMuPDF
+import py7zr as _py7zr  # py7zr
+import imghdr as _imghdr
+import numpy as _numpy
+
+# tikilib
+from . import system as _ts
 
 
-# class LI:
-#     '''LazyImport'''
-#     pd = None #  pandas
-#     @classmethod
-#     def __getattr__(self, __name: str):
-#         if __name == "pd":
-#             import pandas as pd
-#             self.pf = pd
-#             return pd
-#         else:
-#             raise AttributeError(__name)
+class PandasExcelSheet:
+    def __init__(self, file_path: str | _pathlib.Path, sheet_name: str):
+        """
+        Parameters
+        ---
+        file_path : str | pathlib.Path
+            xlsx文件路径
+        sheet_name : str
+            表格名称
+        """
+        self.file_path: _pathlib.Path = _pathlib.Path(file_path)
+        self.sheet_name: str = sheet_name
+        self.__read_cache: _panda.DataFrame = None
 
-
-class PandasExcel:
-    @__dataclass
-    class ExcelData:
-        data: __typing.Any
-        shape: tuple
-        index: list[str]
-        row_data: list[list[__typing.Any]]  # 逐行数据(但不包括首行(列标题)):
-
-    def __init__(self, file_path, sheet_name):
-        self.file_path = file_path
-        self.sheet_name = sheet_name
-
-    def read(self):
-        data = __pd.read_excel(self.file_path, self.sheet_name)
-        shape = data.shape  # 形状:tuple(行数:int, 列数:int)
-        index = list(data.columns)  # 列标题(首行):list[str]
-        rowData = data.values.tolist()
-        return self.ExcelData(data, shape, index, rowData)
-
-    def write(self, data, **kwargs):
+    def write(self, data: _panda.DataFrame, **kwargs):
+        """
+        Parameters
+        ---
+        data : ndarray (structured or homogeneous), Iterable, dict, or DataFrame
+            用于DataFrame初始化
+        kwargs
+            panda.DataFrame.to_excel的参数, index的默认值为False, header的默认值为True
+        """
         kwargs.setdefault("index", False)
         kwargs.setdefault("header", True)
-        __pd.DataFrame(data).to_excel(self.file_path, self.sheet_name, **kwargs)
+        _panda.DataFrame(data).to_excel(self.file_path, self.sheet_name, **kwargs)
+
+    def __read(self, force_update: bool = False):
+        """更新表格信息"""
+        if self.__read_cache == None or force_update:
+            self.__read_cache = _panda.read_excel(self.file_path, self.sheet_name)
+        return self.__read_cache
+
+    @property
+    def dataframe(self) -> _panda.DataFrame:
+        return self.__read()
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """
+        表格形状:tuple(行数:int, 列数:int)
+        """
+        return self.__read().shape
+
+    @property
+    def index_of_column(self) -> _panda.Index:
+        """
+        列标题/首行, 空白的标题会填充为"Unnamed"
+        """
+        return self.__read().columns
+
+    @property
+    def values(self) -> _numpy.ndarray:
+        """
+        表格数据(不含标题行/首行))
+
+        Returns
+        ---
+        numpy.ndarray
+            行优先矩阵, 包含表格所有行的数据(不含标题行)
+        """
+        return self.__read().values
 
 
 class MuPdf:
     @staticmethod
     def pdf2png(
-        pdf_path: __typing.Union[str, __pathlib.Path] = "a.pdf",
-        output_folder: __typing.Union[str, __pathlib.Path] = "image",
-        zoom: __typing.Union[int, tuple[int, int]] = 2,
+        pdf_path: _typing.Union[str, _pathlib.Path] = "a.pdf",
+        output_folder: _typing.Union[str, _pathlib.Path] = "image",
+        zoom: _typing.Union[int, tuple[int, int]] = 2,
         division: tuple[int, int] = (1, 1),
     ):
         """
@@ -74,9 +103,9 @@ class MuPdf:
         ---
         pixmap支持的保存图片格式见https://pymupdf.readthedocs.io/en/latest/pixmap.html#supported-output-image-formats
         """
-        pdf_path, output_folder = map(__pathlib.Path, (pdf_path, output_folder))
+        pdf_path, output_folder = map(_pathlib.Path, (pdf_path, output_folder))
         name = pdf_path.stem
-        pdf = __fitz.Document(pdf_path)
+        pdf = _fitz.Document(pdf_path)
         if isinstance(zoom, int):
             zoom = tuple((zoom, zoom))
 
@@ -84,9 +113,9 @@ class MuPdf:
 
         for page_number, page in enumerate(pdf):
             """逐页遍历"""
-            page: __fitz.Page
-            mat: __fitz.Matrix = __fitz.Matrix(*zoom).prerotate(0)  # 页面大小属性
-            rect: __fitz.Rect = page.rect  # 页面总范围
+            page: _fitz.Page
+            mat: _fitz.Matrix = _fitz.Matrix(*zoom).prerotate(0)  # 页面大小属性
+            rect: _fitz.Rect = page.rect  # 页面总范围
             width = rect.width
             height = rect.height
             delta_width = width / division[0]
@@ -97,24 +126,24 @@ class MuPdf:
                     print(
                         f"processing: {x_index}/{division[0]}-{y_index}/{division[1]}"
                     )
-                    clip = __fitz.Rect(
+                    clip = _fitz.Rect(
                         delta_width * x_index,
                         delta_height * y_index,
                         delta_width * (x_index + 1),
                         delta_height * (y_index + 1),
                     )  # 裁剪范围(x0, y0, x1, y1)
-                    pix: __fitz.Pixmap = page.get_pixmap(matrix=mat, clip=clip)
+                    pix: _fitz.Pixmap = page.get_pixmap(matrix=mat, clip=clip)
                     pix.save(
                         output_folder / f"{name}_{page_number}_y{y_index}x{x_index}.png"
                     )
 
     @staticmethod
     def img2pdf(
-        pic_iter: __typing.Iterable[
-            __typing.Union[str, __pathlib.Path]
-        ] = __pathlib.Path(".").iterdir(),
-        pdf_name: __typing.Union[str, __pathlib.Path] = "images.pdf",
-        filter_: __typing.Callable = __imghdr.what,
+        pic_iter: _typing.Iterable[_typing.Union[str, _pathlib.Path]] = _pathlib.Path(
+            "."
+        ).iterdir(),
+        pdf_name: _typing.Union[str, _pathlib.Path] = "images.pdf",
+        filter_: _typing.Callable = _imghdr.what,
     ):
         """
         图片转pdf
@@ -129,54 +158,66 @@ class MuPdf:
             过滤器
         """
         pic_iter = filter(filter_, pic_iter)
-        with __fitz.Document() as doc:
+        with _fitz.Document() as doc:
             for img in pic_iter:
-                imgdoc: __fitz.Document = __fitz.Document(img)  # 打开图片
+                imgdoc: _fitz.Document = _fitz.Document(img)  # 打开图片
                 pdfbytes = imgdoc.convert_to_pdf()  # 使用图片创建单页的 PDF
-                imgpdf = __fitz.open("pdf", pdfbytes)
+                imgpdf = _fitz.open("pdf", pdfbytes)
                 doc.insert_pdf(imgpdf)  # 将当前页插入文档
 
-            pdf_name = __pathlib.Path(pdf_name)
+            pdf_name = _pathlib.Path(pdf_name)
 
             # 保存在图片文件夹下
             pdf_name.parent.mkdir(exist_ok=True, parents=True)
             doc.save(pdf_name)  # 保存pdf文件
 
     @staticmethod
-    def split_pdf(
-        origin_pdf: __typing.Union[str, __pathlib.Path],
-        output_folder: __typing.Union[str, __pathlib.Path] = None,
+    def extra_pdf(
+        resource_pdf_path: _typing.Union[str, _pathlib.Path],
+        output_pdf_path: _typing.Union[str, _pathlib.Path] = None,
+        pattern: int | _typing.Iterable[int] = None,
     ):
         """
-        分割pdf
+        从pdf中导出指定页
 
         Parameters
         ---
-        origin_pdf : str | pathlib.Path
+        resource_pdf_path : str | pathlib.Path
             原始pdf
-        output_folder: str | pathlib.Path
-            输出文件夹(默认为原始pdf的文件夹)
+        output_pdf_path: str | pathlib.Path
+            输出路径(默认为原始pdf的名称加上"_extracted")
+        pattern: int | Iterable[int]
+            页数(以0开始)或页数序列
+        Returns
+        ---
+        pathlib.Path
+            输出路径
         """
-        origin_pdf = __pathlib.Path(origin_pdf)
-        output_folder = output_folder or origin_pdf.parent
-        output_folder = __pathlib.Path(output_folder)
+        resource_pdf_path = _pathlib.Path(resource_pdf_path)
+        output_pdf_path = (
+            _pathlib.Path(output_pdf_path)
+            if output_pdf_path is not None
+            else _ts.Path.avoid_exist_path(
+                resource_pdf_path.with_stem(resource_pdf_path.stem + "_extracted")
+            )
+        )
+        resouce_pdf = _fitz.Document(resource_pdf_path)
+        if pattern is None:
+            pattern = range(len(resouce_pdf))
+        elif isinstance(pattern, int):
+            pattern = (pattern,)
 
-        pdf = __fitz.Document(origin_pdf)
-        output_pdf_path_list = []
-        for i in range(len(pdf)):
-            newpdf = __fitz.Document()
-            newpdf.insert_pdf(pdf, i, i)
+        newpdf = _fitz.Document()
+        for page_num in pattern:
+            newpdf.insert_pdf(resouce_pdf, page_num, page_num)
 
-            output_pdf_path = output_folder / f"{origin_pdf.stem}_p{i+1}.pdf"
-            output_pdf_path_list.append(output_pdf_path)
-
-            newpdf.save(output_pdf_path)
-        return output_pdf_path_list
+        newpdf.save(output_pdf_path)
+        return output_pdf_path
 
     @staticmethod
     def combine_pdf(
-        origin_pdf_iter: __typing.Iterable[__typing.Union[str, __pathlib.Path]],
-        output_pdf_path: __typing.Union[str, __pathlib.Path],
+        origin_pdf_iter: _typing.Iterable[_typing.Union[str, _pathlib.Path]],
+        output_pdf_path: _typing.Union[str, _pathlib.Path],
     ):
         """
         合并pdf
@@ -188,30 +229,72 @@ class MuPdf:
         output_pdf_path : str | _pathlib.Path
             输出pdf文件
         """
-        origin_pdf_iter = [__pathlib.Path(i) for i in origin_pdf_iter]
-        output_pdf_path = __pathlib.Path(output_pdf_path)
-        output_pdf = __fitz.Document()
+        origin_pdf_iter = [_pathlib.Path(i) for i in origin_pdf_iter]
+        output_pdf_path = _pathlib.Path(output_pdf_path)
+        output_pdf = _fitz.Document()
         for i in origin_pdf_iter:
-            pdf_tobe_insert = __fitz.Document(i)
+            pdf_tobe_insert = _fitz.Document(i)
             output_pdf.insert_pdf(pdf_tobe_insert)
         output_pdf.save(output_pdf_path)
 
+    @classmethod
+    def split_pdf(
+        cla,
+        resource_pdf_path: _typing.Union[str, _pathlib.Path],
+        output_folder: _typing.Union[str, _pathlib.Path] = None,
+    ) -> list[_pathlib.Path]:
+        """
+        将pdf切割为单页
+
+        Parameters
+        ---
+        resource_pdf_path : str | pathlib.Path
+            原始pdf
+        output_folder: str | pathlib.Path
+            输出文件夹
+        Returns
+        ---
+        list[pathlib.Path]
+            输出路径
+        """
+        resource_pdf_path = _pathlib.Path(resource_pdf_path)
+        output_folder = (
+            _pathlib.Path(output_folder)
+            if output_folder is not None
+            else resource_pdf_path.parent
+        )
+        output_folder.mkdir(exist_ok=True, parents=True)
+
+        pdf = _fitz.Document(resource_pdf_path)
+        output_pdf_path_list = []
+        for page_num in range(len(pdf)):
+            newpdf = _fitz.Document()
+            newpdf.insert_pdf(pdf, page_num, page_num)
+
+            output_pdf_path = (
+                output_folder / f"{resource_pdf_path.stem}_p{page_num+1}.pdf"
+            )
+
+            newpdf.save(output_pdf_path)
+            output_pdf_path_list.append(output_pdf_path)
+        return output_pdf_path_list
+
     @staticmethod
-    def pdf_to_a4(origin_pdf: __pathlib.Path, output_pdf: __pathlib.Path = None):
+    def pdf_to_a4(origin_pdf: _pathlib.Path, output_pdf: _pathlib.Path = None):
         # TODO可用, 但测试中
-        origin_pdf = __pathlib.Path(origin_pdf)
+        origin_pdf = _pathlib.Path(origin_pdf)
         output_pdf = output_pdf or origin_pdf.with_stem(f"{origin_pdf.stem}_A4")
 
-        src = __fitz.Document(origin_pdf)
-        doc = __fitz.Document()
+        src = _fitz.Document(origin_pdf)
+        doc = _fitz.Document()
         for ipage in src:
             rotation = ipage.rotation
             if rotation in {90, 270}:
-                fmt = __fitz.paper_rect("a4-l")
+                fmt = _fitz.paper_rect("a4-l")
                 ipage.set_rotation(0)
             else:
-                fmt = __fitz.paper_rect("a4")
-            page: __fitz.Page = doc.new_page(width=fmt.width, height=fmt.height)
+                fmt = _fitz.paper_rect("a4")
+            page: _fitz.Page = doc.new_page(width=fmt.width, height=fmt.height)
             page.show_pdf_page(page.rect, src, ipage.number)
             page.set_rotation(rotation)
         src.close()
@@ -229,13 +312,13 @@ class Py7zr:
         7z解压
         """
         password = password if password else None
-        with __py7zr.SevenZipFile(zip_path, password=password, mode="r", **kwargs) as z:
+        with _py7zr.SevenZipFile(zip_path, password=password, mode="r", **kwargs) as z:
             z.extractall(output_folder)
 
     @staticmethod
     def compression(
-        zip_path: __pathlib.Path,
-        input_folder: __pathlib.Path,
+        zip_path: _pathlib.Path,
+        input_folder: _pathlib.Path,
         password: str = None,
         **kwargs,
     ):
@@ -244,21 +327,21 @@ class Py7zr:
         """
         password = password if password else None
 
-        zip_path, input_folder = map(__pathlib.Path, (zip_path, input_folder))
+        zip_path, input_folder = map(_pathlib.Path, (zip_path, input_folder))
         if password:
             crypyto_kwargs = {
                 "header_encryption": True,
                 "filters": [
-                    {"id": __py7zr.FILTER_COPY},
-                    {"id": __py7zr.FILTER_CRYPTO_AES256_SHA256},
+                    {"id": _py7zr.FILTER_COPY},
+                    {"id": _py7zr.FILTER_CRYPTO_AES256_SHA256},
                 ],
             }
         else:
             crypyto_kwargs = {
                 "header_encryption": False,
-                "filters": [{"id": __py7zr.FILTER_COPY}],
+                "filters": [{"id": _py7zr.FILTER_COPY}],
             }
-        with __py7zr.SevenZipFile(
+        with _py7zr.SevenZipFile(
             zip_path, password=password, mode="w", **crypyto_kwargs, **kwargs
         ) as z:
             z.writeall(input_folder, "")
@@ -271,7 +354,7 @@ class Py7zr:
             压缩包无密码时任何密码都正确, 出现其他错误时也会返回False
         """
         try:
-            zipfile = __py7zr.SevenZipFile(zip_path, password=password, mode="r")
+            zipfile = _py7zr.SevenZipFile(zip_path, password=password, mode="r")
             zipfile.close()
             return True
         except Exception:
@@ -281,5 +364,5 @@ class Py7zr:
     def test(zip_path: str, password: str = None):
         """测试压缩包中各个文件的CRC值"""
         password = password if password else None
-        with __py7zr.SevenZipFile(zip_path, password=password, mode="r") as z:
+        with _py7zr.SevenZipFile(zip_path, password=password, mode="r") as z:
             return z.test()
