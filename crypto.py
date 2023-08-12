@@ -1,12 +1,14 @@
 # 标准库
 import hashlib as _hashlib
 import os
+
 # 第三方库
 from Crypto.Cipher import AES  # pycryptodome
 
 
 class Hash:
     """Hashing String And File"""
+
     @staticmethod
     def __gene_hash_obj(hash_type):
         if hash_type == 1:
@@ -30,7 +32,7 @@ class Hash:
         elif hash_type == 3.512:
             return _hashlib.sha3_512()
         else:
-            raise Exception('类型错误, 初始化失败')
+            raise Exception("类型错误, 初始化失败")
 
     @staticmethod
     def file_hash(path, hash_type):
@@ -55,12 +57,12 @@ class Hash:
                         hashObj.update(byte_block)
                     return hashObj.hexdigest()
             except Exception as e:
-                raise Exception('%s计算哈希出错: %s' % (path, e))
+                raise Exception("%s计算哈希出错: %s" % (path, e))
         else:
             raise Exception('路径错误, 没有指向文件: "%s"')
 
     @staticmethod
-    def str_hash(str_: str, hash_type, charset='utf-8'):
+    def str_hash(str_: str, hash_type, charset="utf-8"):
         """计算字符串哈希
         :param str_: 字符串
         :param hash_type: 哈希算法类型
@@ -102,6 +104,8 @@ class Hash:
 
 class SimpleAES_StringCrypto:
     """
+    Notion
+    ---
     在线加密解密见https://www.ssleye.com/aes_cipher.html
     key: sha256(secret_key)[0:32]
     iv: sha256(secret_key)[32:48]
@@ -115,7 +119,7 @@ class SimpleAES_StringCrypto:
         """
         :param secret_key: 密钥
         """
-        self.charset = 'utf-8'
+        self.charset = "utf-8"
 
         hash = _hashlib.sha256()
         hash.update(secret_key.encode(self.charset))
@@ -123,12 +127,14 @@ class SimpleAES_StringCrypto:
 
         self.key = keyhash[0:32]
         self.iv = keyhash[32:48]
-        print("AesCrypto initialization successful!\nkey: %s\niv: %s\nmode: CBC\npadding: pkcs7padding\ncharset: %s\nencode: Hex\n----------" %
-              (self.key, self.iv, self.charset))
+        print(
+            "AesCrypto initialization successful!\nkey: %s\niv: %s\nmode: CBC\npadding: pkcs7padding\ncharset: %s\nencode: Hex\n----------"
+            % (self.key, self.iv, self.charset)
+        )
         self.key = self.key.encode(self.charset)
         self.iv = self.iv.encode(self.charset)
 
-    def encrypt(self, text):
+    def encrypt(self, text: str):
         """加密"""
         cipher = AES.new(self.key, AES.MODE_CBC, self.iv)
 
@@ -138,7 +144,7 @@ class SimpleAES_StringCrypto:
         text = text.hex()  # Hex编码
         return text
 
-    def decrypt(self, text):
+    def decrypt(self, text) -> str:
         """解密"""
         cipher = AES.new(self.key, AES.MODE_CBC, self.iv)
 
@@ -155,4 +161,4 @@ class SimpleAES_StringCrypto:
 
     def pkcs7unpadding(self, text: str):
         """去掉填充字符"""
-        return text[:-ord(text[-1])]
+        return text[: -ord(text[-1])]
