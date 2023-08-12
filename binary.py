@@ -1,7 +1,6 @@
 # 标准库
 import pathlib as __pathlib
 import typing as __typing
-
 from dataclasses import dataclass as __dataclass
 
 # 第三方库
@@ -111,7 +110,9 @@ class MuPdf:
 
     @staticmethod
     def img2pdf(
-        pic_iter: __typing.Iterable[__typing.Union[str, __pathlib.Path]] = __pathlib.Path(".").iterdir(),
+        pic_iter: __typing.Iterable[
+            __typing.Union[str, __pathlib.Path]
+        ] = __pathlib.Path(".").iterdir(),
         pdf_name: __typing.Union[str, __pathlib.Path] = "images.pdf",
         filter_: __typing.Callable = __imghdr.what,
     ):
