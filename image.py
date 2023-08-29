@@ -390,6 +390,102 @@ class CvOperation:
 
 
 class Dhash:
+    @staticmethod
+    def calculate(img_path: str | bytes | Path, shape=(64, 65)) -> str:
+        """
+        计算Dhash, 以hex字符串储存结果
+
+        Parameters
+        ---
+        img_path : str | bytes | Path
+            图片路径
+        """
+        img = CvImg.imread_fromfile(img_path)
+        img = _cv2.resize(img, shape)
+        img = _cv2.cvtColor(img, _cv2.COLOR_BGR2GRAY)
+
+        img: np.ndarray = img[:-1, :] > img[1:, :]
+
+        hash_bool_array = img.flatten("C")
+        hash_bool_array: np.ndarray = hash_bool_array.astype("uint8")
+
+        match hash_bool_array.shape[0] % 8:
+            # 补0, 确保数组长度是8的倍数
+            case 0:
+                pass
+            case padding:
+                hash_bool_array = np.pad(
+                    hash_bool_array,
+                    (0, 8 - padding),
+                    "constant",
+                    constant_values=(0, 0),
+                )
+        # 8 * bool_ -> uint8
+        hex_result: np.ndarray = sum((2**i * hash_bool_array[i::8] for i in range(8)))
+        # uint8 -> bytes -> hex
+        hex_result = hex_result.tobytes().hex()
+        return hex_result
+
+    @staticmethod
+    def diffence(hash1: str, hash2: str) -> float:
+        """
+        借助汉明距离计算差异率
+        一般小于10%, 可视为同一或相似图片
+
+        - hash字符串应取计算时, resize到相同shape的两者。
+        """
+
+        def hex_to_bool_array(hex_string: str) -> np.ndarray:
+            # hex -> bytes -> uint8 -> 8 * bool_
+            item = np.frombuffer(bytes.fromhex(hex_string), dtype="uint8")
+            result = np.zeros(item.shape[0] * 8, dtype="bool_")
+            for i in range(8):
+                # 通过与操作和移位操作将uint8拆开为8个bool_
+                result[i::8] = np.right_shift(
+                    np.bitwise_and(item, np.array(2**i, dtype="uint8")), i
+                )
+            return result
+
+        hash1, hash2 = map(hex_to_bool_array, (hash1, hash2))
+        hash1: np.ndarray
+        hash2: np.ndarray
+        return np.count_nonzero(np.bitwise_xor(hash1, hash2)) / hash1.shape[0]
+
+    @classmethod
+    def _test_find_similar(cls, folder: str, factor=0.1):
+        """查找文件夹中的相似图片"""
+        file_hash: list[tuple[Path, str]] = []
+
+        res_str = []
+
+        for i, item in enumerate(_t_system.Path.traversing_generator(folder)):
+            if not item.is_file():
+                continue
+            if item.suffix not in (".jpg", ".jpeg", ".png"):
+                continue
+
+            try:
+                dhash = cls.calculate(item)
+            except Exception as e:
+                print(e)
+                continue
+
+            for file_path_2, dhash_2 in file_hash:
+                if cls.diffence(dhash, dhash_2) <= factor:
+                    res_str.append(f"{file_path_2.name}\t{item.name}")
+                    break
+
+            file_hash.append((item, dhash))
+
+            if i % 100 == 0:
+                print(i)
+
+        for i in res_str:
+            print(i)
+        print("ok")
+
+
+class __old_Dhash:
     def __init__(self, image, resize=(33, 32)):
         """
         :param image:(str|bytes) 图片
@@ -401,7 +497,7 @@ class Dhash:
         elif type(image) == bytes:
             self.image: Image.Image = Image.open(io.BytesIO(image))
         self._grayscale_Image()
-        self.dhash = self._hash_String
+        self.dhash = self._hash_string
 
     def _grayscale_Image(self):
         """
@@ -413,7 +509,7 @@ class Dhash:
         return self.image
 
     @property
-    def _hash_String(self):
+    def _hash_string(self):
         """
         计算Dhash
         """
