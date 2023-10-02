@@ -1,6 +1,7 @@
 # 标准库
 import pathlib as _pathlib
 import typing as _typing
+import sqlite3 as _sqlite3
 
 # 第三方库
 import pandas as _panda  # pandas
@@ -366,3 +367,189 @@ class Py7zr:
         password = password if password else None
         with _py7zr.SevenZipFile(zip_path, password=password, mode="r") as z:
             return z.test()
+
+
+class DbOperator(_sqlite3.Connection):
+    """
+    python中SQL语句特性
+    ---
+    - 表、列名不能用?占位符
+    - select中, 列名如果用""括起来, 就会被识别为字符串值, 返回结果时不会返回列对应的值, 而是该字符串。填入其他值同理。
+    """
+
+    SQLITE_KEYWORD_SET = set(
+        "ABORT ACTION ADD AFTER ALL ALTER ANALYZE AND AS ASC ATTACH AUTOINCREMENT BEFORE BEGIN BETWEEN BY CASCADE CASE CAST CHECK COLLATE COLUMN COMMIT CONFLICT CONSTRAINT CREATE CROSS CURRENT_DATE CURRENT_TIME CURRENT_TIMESTAMP DATABASE DEFAULT DEFERRABLE DEFERRED DELETE DESC DETACH DISTINCT DROP EACH ELSE END ESCAPE EXCEPT EXCLUSIVE EXISTS EXPLAIN FAIL FOR FOREIGN FROM FULL GLOB GROUP HAVING IF IGNORE IMMEDIATE IN INDEX INDEXED INITIALLY INNER INSERT INSTEAD INTERSECT INTO IS ISNULL JOIN KEY LEFT LIKE LIMIT MATCH NATURAL NO NOT NOTNULL NULL OF OFFSET ON OR ORDER OUTER PLAN PRAGMA PRIMARY QUERY RAISE RECURSIVE REFERENCES REGEXP REINDEX RELEASE RENAME REPLACE RESTRICT RIGHT ROLLBACK ROW SAVEPOINT SELECT SET TABLE TEMP TEMPORARY THEN TO TRANSACTION TRIGGER UNION UNIQUE UPDATE USING VACUUM VALUES VIEW VIRTUAL WHEN WHERE WITH WITHOUT".split(
+            " "
+        )
+    )
+
+    @classmethod
+    def check_name_normal(cls, name: str):
+        """检查名字仅含[a-zA-Z0-9_]且并非关键字"""
+        if name.upper() in cls.SQLITE_KEYWORD_SET:
+            return False
+        if not _re.match(r"^\w+$", name):
+            return False
+        return True
+
+    def __init__(
+        self,
+        database: str | bytes | _os.PathLike[str] | _os.PathLike[bytes],
+        *args,
+        **kwargs,
+    ):
+        """
+        database: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        timeout: float = ...,
+        detect_types: int = ...,
+        isolation_level: str | None = ...,
+        check_same_thread: bool = ...,
+        factory: type[sqlite3.Connection] | None = ...,
+        cached_statements: int = ...,
+        uri: bool = ...,
+        """
+        super().__init__(database, *args, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    @property
+    def table_list(self) -> list[str]:
+        """
+        Returns
+        ---
+        表名列表
+        """
+        sentence = "SELECT NAME FROM SQLITE_MASTER WHERE TYPE='table' ORDER BY NAME"  # SQLITE_MASTER不区分大小写, table必须为小写
+        return [i[0] for i in self.execute(sentence)]
+
+    def get_table_info(self, tbl_name: str):
+        """
+        获取表详情
+
+        Warning: 没有对传入参数进行检查, 有sql注入风险
+        """
+        res = self.execute(f"PRAGMA table_info('{tbl_name}')")
+        return list(res.fetchall())
+
+    def try_exe(self, sql: str, parameters: _typing.Iterable = None) -> _sqlite3.Cursor:
+        """execute的自动commit版本, 如果出错会自动rollback"""
+        try:
+            if parameters is None:
+                result = self.execute(sql)
+            else:
+                result = self.execute(sql, parameters)
+            self.commit()
+            return result
+        except Exception as e:
+            self.rollback()
+            raise e
+
+    def try_exemany(self, sql: str, parameters: _typing.Iterable) -> _sqlite3.Cursor:
+        """executemany的自动commit版本, 如果出错会自动rollback"""
+        try:
+            result = self.executemany(sql, parameters)
+            self.commit()
+            return result
+        except Exception as e:
+            self.rollback()
+            raise e
+
+    def create_table(self, table: str, columns: list[tuple[str]]) -> _sqlite3.Cursor:
+        """
+        创建表(如果表已存在, 则不执行创建)
+
+        Warning: 没有对传入参数进行检查, 有sql注入风险
+
+        Parameters
+        ---
+        table : str
+            表名
+        columns : list[tuple[str]]
+            列属性, 应为(name, type, *constraints)
+        """
+
+        def fcolumn(column: tuple[str]):
+            column = tuple(column)
+            return f"'{column[0]}' " + " ".join(column[1:])
+
+        columns = ",\n".join(map(fcolumn, columns))
+
+        sentence = f"CREATE TABLE IF NOT EXISTS '{table}' ({columns});"
+        return self.try_exe(sentence)
+
+    def select(
+        self,
+        table: str,
+        column_name: str | _typing.Iterable[str] = "*",
+        clause: str = "",
+        parameters=None,
+    ) -> _sqlite3.Cursor:
+        """
+        查询
+
+        Warning: 没有对传入参数进行检查, 有sql注入风险
+
+        Parameters
+        ---
+        table : str
+            表名
+        column_name : str | typing.Iterable[str], default = "*"
+            列名
+        clause : str
+            子句(比如WHERE ORDER等)
+        parameters : SupportsLenAndGetItem[_AdaptedInputData] | Mapping[str, _AdaptedInputData]
+            格式化参数
+        """
+        if isinstance(column_name, str):
+            if column_name == "*":
+                pass
+            else:
+                column_name = f"{column_name}"
+        elif isinstance(column_name, _typing.Iterable):
+            column_name = ", ".join((f"{i}" for i in column_name))
+
+        sentence = f"""SELECT {column_name} FROM {table} {clause};"""
+
+        if parameters is None:
+            return self.execute(sentence)
+        return self.execute(sentence, parameters)
+
+    def insert_many(
+        self,
+        table: str,
+        column_name: str | _typing.Iterable[str],
+        data: list[tuple[_typing.Any]],
+        clause: str = "",
+    ) -> _sqlite3.Cursor:
+        """
+        插入
+
+        Warning: 没有对传入参数进行检查, 有sql注入风险
+
+        Parameters
+        ---
+        table : str
+            表名
+        column_name : str | Iterable[str]
+            列名
+        data : list[tuple[Any]]
+            tuple[Any]代表单行数据包装为一个元组
+        clause : str
+            子句
+        """
+        if isinstance(column_name, str):
+            column_name = f"('{column_name}')"
+            placeholder = "(?)"
+        elif isinstance(column_name, _typing.Iterable):
+            placeholder = "(" + ", ".join(map(lambda x: "?", column_name)) + ")"
+            column_name = ", ".join((f"'{i}'" for i in column_name))
+            column_name = f"({column_name})"
+
+        sentence = f"INSERT INTO '{table}' {column_name} VALUES {placeholder} {clause};"
+        return self.try_exemany(sentence, data)
+
+    _update = "UPDATE table SET column_name1 = ? where column_name2 = ?;"
