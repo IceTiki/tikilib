@@ -1,7 +1,11 @@
 # 标准库
 import pathlib as _pathlib
 import typing as _typing
+import os as _os
 import sqlite3 as _sqlite3
+import traceback as _traceback
+import re as _re
+import functools as _functools
 
 # 第三方库
 import pandas as _panda  # pandas
@@ -11,7 +15,7 @@ import imghdr as _imghdr
 import numpy as _numpy
 
 # tikilib
-from . import system as _ts
+from . import system as _t_system
 
 
 class PandasExcelSheet:
@@ -41,29 +45,29 @@ class PandasExcelSheet:
         kwargs.setdefault("header", True)
         _panda.DataFrame(data).to_excel(self.file_path, self.sheet_name, **kwargs)
 
-    def __read(self, force_update: bool = False):
+    def _read_dataframe(self, force_update: bool = False) -> _panda.DataFrame:
         """更新表格信息"""
-        if self.__read_cache == None or force_update:
+        if self.__read_cache is None or force_update:
             self.__read_cache = _panda.read_excel(self.file_path, self.sheet_name)
         return self.__read_cache
 
     @property
     def dataframe(self) -> _panda.DataFrame:
-        return self.__read()
+        return self._read_dataframe()
 
     @property
     def shape(self) -> tuple[int, int]:
         """
         表格形状:tuple(行数:int, 列数:int)
         """
-        return self.__read().shape
+        return self.dataframe.shape
 
     @property
     def index_of_column(self) -> _panda.Index:
         """
         列标题/首行, 空白的标题会填充为"Unnamed"
         """
-        return self.__read().columns
+        return self.dataframe.columns
 
     @property
     def values(self) -> _numpy.ndarray:
@@ -75,10 +79,12 @@ class PandasExcelSheet:
         numpy.ndarray
             行优先矩阵, 包含表格所有行的数据(不含标题行)
         """
-        return self.__read().values
+        return self.dataframe.values
 
 
 class MuPdf:
+    """pdf相关(无需初始化, 调用静态函数即可)"""
+
     @staticmethod
     def pdf2png(
         pdf_path: _typing.Union[str, _pathlib.Path] = "a.pdf",
@@ -198,7 +204,7 @@ class MuPdf:
         output_pdf_path = (
             _pathlib.Path(output_pdf_path)
             if output_pdf_path is not None
-            else _ts.Path.avoid_exist_path(
+            else _t_system.Path.avoid_exist_path(
                 resource_pdf_path.with_stem(resource_pdf_path.stem + "_extracted")
             )
         )
