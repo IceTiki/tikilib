@@ -26,6 +26,16 @@ def dichotomy(a=-10, b=10, func=lambda x: x, times=100):
     return x0
 
 
+def mod(a, b):
+    """取模(等价于python中的%)"""
+    return a - a // b * b
+
+
+def rem(a, b):
+    """取余"""
+    return a - int(a / b) * b
+
+
 class MathFunction:
     @staticmethod
     def two_dimensional_gaussian_distribution(
@@ -60,3 +70,45 @@ def normalization(arr: np.ndarray) -> np.ndarray:
     arr = arr - min_
     arr = arr if (max_ - min_) == 0 else arr / (max_ - min_)
     return arr
+def axis_angle2rotation_matrix(axis_vector: np.ndarray, left: bool = False):
+    """
+    将「轴角」转换为「旋转矩阵」
+
+    Parameters
+    ---
+    axis_vector : np.ndarray
+        代表转动量在x, y, z上的分量, 其模长即为转角(弧度制)
+    left : bool, default = False
+        是否使用左手系(伸出拇指, 握紧四指时, 拇指为向量方向, 四指为转动方向)
+
+    Note
+    ---
+    公式来源:
+        - [三维旋转：欧拉角、四元数、旋转矩阵、轴角之间的转换](https://zhuanlan.zhihu.com/p/45404840)
+        - [机器人正运动学---姿态描述之轴角（旋转向量）](https://blog.csdn.net/hitgavin/article/details/106713290)
+    """
+    modulus = np.linalg.norm(axis_vector, 2)  # 模长, 即为转动角度
+    angle = modulus if left else -modulus
+    cos_a = np.cos(angle)
+    sin_a = np.sin(angle)
+
+    x, y, z = axis_vector / modulus
+    return np.array(
+        [
+            [
+                (1 - cos_a) * x**2 + cos_a,
+                (1 - cos_a) * x * y - z * sin_a,
+                (1 - cos_a) * x * z + y * sin_a,
+            ],
+            [
+                (1 - cos_a) * x * y + z * sin_a,
+                (1 - cos_a) * y**2 + cos_a,
+                (1 - cos_a) * y * z - x * sin_a,
+            ],
+            [
+                (1 - cos_a) * x * z - y * sin_a,
+                (1 - cos_a) * y * z + x * sin_a,
+                (1 - cos_a) * z**2 + cos_a,
+            ],
+        ]
+    )
