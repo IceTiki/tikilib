@@ -1,26 +1,43 @@
-# 标准库
-import io
-from functools import partial
-from itertools import product
-from pathlib import Path
-from typing import Iterable, Union, BinaryIO, Literal
-import typing as _typing
-import itertools as _itertools
+if __name__ == "__main__":
+    # 标准库
+    import io as _io
+    import pathlib as _pathlib
+    import _typing as _typing
+    import itertools as _itertools
+    import functools as _functools
 
-# 第三方库
-import numpy as np
-from PIL import Image  # pillow
-import cv2 as _cv2  # opencv-python
+    # 第三方库
+    import numpy as _np
+    from PIL import Image as _Image  # pillow
+    import cv2 as _cv2  # opencv-python
 
-# 本库
-from . import system as _t_system
+    # 本库
+    from . import system as _t_system
+else:
+    from . import LazyImport
+
+    # 标准库
+    _io = LazyImport("io")
+    _pathlib = LazyImport("pathlib")
+    _typing = LazyImport("typing")
+    _itertools = LazyImport("itertools")
+    _functools = LazyImport("functools")
+
+    # 第三方库
+    _np = LazyImport("numpy")
+    _Image = LazyImport("PIL.Image")  # pillow
+    _cv2 = LazyImport("cv2")  # opencv-python
+
+    # 本库
+    _t_system = LazyImport(".system")
 
 
 class CvIo:
     @staticmethod
     def load(
-        file: str | bytes | Path | _typing.BinaryIO, flags: int = _cv2.IMREAD_COLOR
-    ) -> np.ndarray:
+        file: str | bytes | _pathlib.Path | _typing.BinaryIO,
+        flags: int = _cv2.IMREAD_COLOR,
+    ) -> _np.ndarray:
         """
         cv2.imread的支持中文路径版本
 
@@ -34,13 +51,13 @@ class CvIo:
             cv2.IMREAD_COLOR = 1
 
         """
-        cv_img: np.ndarray = _cv2.imdecode(np.fromfile(file, dtype=np.uint8), flags)
+        cv_img: _np.ndarray = _cv2.imdecode(_np.fromfile(file, dtype=_np.uint8), flags)
         return cv_img
 
     @staticmethod
     def write(
-        img: np.ndarray,
-        file: str | bytes | Path | _typing.BinaryIO,
+        img: _np.ndarray,
+        file: str | bytes | _pathlib.Path | _typing.BinaryIO,
         params=None,
         ext: str = None,
     ) -> None:
@@ -59,18 +76,18 @@ class CvIo:
             扩展名, 如果文件名为str|Path, 则读取其扩展名。否则默认取".png"。
         """
         if ext is None:
-            if isinstance(file, (str, Path)):
-                ext = Path(file).suffix
+            if isinstance(file, (str, _pathlib.Path)):
+                ext = _pathlib.Path(file).suffix
             else:
                 ext = ".png"
 
-        encode_data: np.ndarray = _cv2.imencode(
+        encode_data: _np.ndarray = _cv2.imencode(
             ext, img, *([params] if params else [])
         )[1]
         encode_data.tofile(file)
 
     @staticmethod
-    def show(img: np.ndarray, winname=None):
+    def show(img: _np.ndarray, winname=None):
         winname = winname or "image"
         _cv2.imshow(winname, img)
 
@@ -124,7 +141,7 @@ class CvBlending:
     """
 
     def __set_dtype_for_param_and_return(
-        param_type=np.int32, return_type=np.uint8, return_clip=None
+        param_type=_np.int32, return_type=_np.uint8, return_clip=None
     ):
         """
         :param return_clip: (tuple)将返回值限定在一定范围(min, max)
@@ -133,15 +150,15 @@ class CvBlending:
         def decorator(func):
             def wrapper(*args, **kwargs):
                 change_param = lambda x: (
-                    np.array(x, dtype=param_type) if isinstance(x, np.ndarray) else x
+                    _np.array(x, dtype=param_type) if isinstance(x, _np.ndarray) else x
                 )
                 args = (change_param(i) for i in args)
                 kwargs = {change_param(i): j for i, j in kwargs}
                 result = func(*args, **kwargs)
                 if return_clip:
-                    return np.array(np.clip(result, *return_clip), return_type)
+                    return _np.array(_np.clip(result, *return_clip), return_type)
 
-                return np.array(result, return_type)
+                return _np.array(result, return_type)
 
             return wrapper
 
@@ -156,27 +173,27 @@ class CvBlending:
         from tikilib import plot
 
         X, Y, F = plot.gene_gird(xrange, yrange, func)
-        title = f"min: {np.min(F)}|max: {np.max(F)}"
+        title = f"min: {_np.min(F)}|max: {_np.max(F)}"
         fig, ax = plot.gene_fig_ax()
         ax: plot.plt.Axes
         ax.set_title(title)
         ax.contourf(X, Y, F)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def invert(img: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def invert(img: _np.ndarray):
         """反相"""
         return 255 - img
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def transparent(img_1: np.ndarray, img_2: np.ndarray, alpha: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def transparent(img_1: _np.ndarray, img_2: _np.ndarray, alpha: _np.ndarray):
         """不透明度"""
         return (img_1 * (255 - alpha) + img_2 * alpha) // 255
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def dissolve(canvas: np.ndarray, img: np.ndarray, alpha: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def dissolve(canvas: _np.ndarray, img: _np.ndarray, alpha: _np.ndarray):
         """
         溶解
 
@@ -201,96 +218,100 @@ class CvBlending:
             - 通道数(img.shape[-1]) : 与canvas, img相同。
             - 类型 : np.uint8, 取值范围为0~255。
         """
-        random_mask = np.random.randint(
+        random_mask = _np.random.randint(
             0, 256, canvas.shape[:-1]
         )  #  np.random.randint生成的随机数不包含高位。
         mask = random_mask <= alpha
         channel_n = canvas.shape[-1]
-        mask = np.expand_dims(mask, channel_n - 1).repeat(channel_n, axis=channel_n - 1)
-        return np.where(mask, img, canvas)
+        mask = _np.expand_dims(mask, channel_n - 1).repeat(
+            channel_n, axis=channel_n - 1
+        )
+        return _np.where(mask, img, canvas)
 
     # 变暗模式
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def dark(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def dark(img_1: _np.ndarray, img_2: _np.ndarray):
         """变暗"""
-        return np.minimum(img_1, img_2)
+        return _np.minimum(img_1, img_2)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def multiply(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def multiply(img_1: _np.ndarray, img_2: _np.ndarray):
         """正片叠底"""
         return img_1 * img_2 // 255
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def color_burn(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def color_burn(img_1: _np.ndarray, img_2: _np.ndarray):
         """颜色加深"""
-        return img_1 - np.minimum(
+        return img_1 - _np.minimum(
             img_1,  # np.minimum避免出现负数
-            (255 - img_1) * (255 - img_2) // np.maximum(img_2, 1),  # np.maximum避免出现除数为0
+            (255 - img_1)
+            * (255 - img_2)
+            // _np.maximum(img_2, 1),  # np.maximum避免出现除数为0
         )
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.int16)
-    def linear_burn(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.int16)
+    def linear_burn(img_1: _np.ndarray, img_2: _np.ndarray):
         """线性加深"""
-        return np.maximum(img_1 + img_2 - 255, 0)
+        return _np.maximum(img_1 + img_2 - 255, 0)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def darker_color(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def darker_color(img_1: _np.ndarray, img_2: _np.ndarray):
         """深色"""
         mask = _cv2.cvtColor(img_2, _cv2.COLOR_BGR2GRAY) <= _cv2.cvtColor(
             img_1, _cv2.COLOR_BGR2GRAY
         )
-        mask = np.expand_dims(mask, 2).repeat(3, axis=2)
-        return np.where(mask, img_2, img_1)
+        mask = _np.expand_dims(mask, 2).repeat(3, axis=2)
+        return _np.where(mask, img_2, img_1)
 
     # 变亮模式
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def lighten(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def lighten(img_1: _np.ndarray, img_2: _np.ndarray):
         """变亮"""
-        return np.maximum(img_1, img_2)
+        return _np.maximum(img_1, img_2)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def screen(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def screen(img_1: _np.ndarray, img_2: _np.ndarray):
         """滤色"""
         return 255 - ((255 - img_1) * (255 - img_2)) // 255
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def color_dodge(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def color_dodge(img_1: _np.ndarray, img_2: _np.ndarray):
         """颜色减淡"""
-        return np.minimum(255, img_1 + img_1 * img_2 // np.maximum(255 - img_2, 1))
+        return _np.minimum(255, img_1 + img_1 * img_2 // _np.maximum(255 - img_2, 1))
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def linear_dodge(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def linear_dodge(img_1: _np.ndarray, img_2: _np.ndarray):
         """线性减淡(添加)"""
-        return img_1 + np.minimum(255 - img_1, img_2)
+        return img_1 + _np.minimum(255 - img_1, img_2)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def lighter_color(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def lighter_color(img_1: _np.ndarray, img_2: _np.ndarray):
         """浅色"""
         mask = _cv2.cvtColor(img_2, _cv2.COLOR_BGR2GRAY) >= _cv2.cvtColor(
             img_1, _cv2.COLOR_BGR2GRAY
         )
-        mask = np.expand_dims(mask, 2).repeat(3, axis=2)
-        return np.where(mask, img_2, img_1)
+        mask = _np.expand_dims(mask, 2).repeat(3, axis=2)
+        return _np.where(mask, img_2, img_1)
 
     # 饱和度模式
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def overlay(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def overlay(img_1: _np.ndarray, img_2: _np.ndarray):
         """叠加"""
-        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        result = _np.zeros(img_1.shape, dtype=img_1.dtype)
         mask = img_1 < 128
         invert_mask = ~mask
         result[mask] = img_1[mask] * img_2[mask] // 128
@@ -300,10 +321,10 @@ class CvBlending:
         return result
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def soft_light(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def soft_light(img_1: _np.ndarray, img_2: _np.ndarray):
         """柔光"""
-        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        result = _np.zeros(img_1.shape, dtype=img_1.dtype)
 
         # mask
         mask = img_2 < 128
@@ -319,16 +340,16 @@ class CvBlending:
         img_im1, img_im2 = img_1[invert_mask], img_2[invert_mask]
 
         res_2t = 2 * img_im2 - 255
-        result[invert_mask] = img_im1 * (255 - img_im2) // 128 + np.sqrt(
+        result[invert_mask] = img_im1 * (255 - img_im2) // 128 + _np.sqrt(
             img_im1 * res_2t // 255 * res_2t
         )
-        return np.minimum(255, result)
+        return _np.minimum(255, result)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def hard_light(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def hard_light(img_1: _np.ndarray, img_2: _np.ndarray):
         """强光"""
-        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        result = _np.zeros(img_1.shape, dtype=img_1.dtype)
 
         # mask
         mask = img_2 < 128
@@ -342,94 +363,94 @@ class CvBlending:
         return result
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def vivid_light(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def vivid_light(img_1: _np.ndarray, img_2: _np.ndarray):
         """亮光"""
-        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        result = _np.zeros(img_1.shape, dtype=img_1.dtype)
 
         # mask
         mask = img_2 < 128
         img_m1, img_m2 = img_1[mask], img_2[mask]
 
         img_m2_double = 2 * img_m2
-        result[mask] = img_m1 - np.minimum(  #  np.minimum避免出现负数
+        result[mask] = img_m1 - _np.minimum(  #  np.minimum避免出现负数
             img_m1,
             (255 - img_m1)
             * (255 - img_m2_double)
-            // np.maximum(1, img_m2_double),  #  np.maximum避免被除数为0
+            // _np.maximum(1, img_m2_double),  #  np.maximum避免被除数为0
         )
 
         # invert_mask
         invert_mask = ~mask
         img_im1, img_im2 = img_1[invert_mask], img_2[invert_mask]
 
-        result[invert_mask] = np.minimum(
+        result[invert_mask] = _np.minimum(
             255, img_im1 + img_im1 * (2 * img_im2 - 255) // (2 * (255 - img_im2))
         )
         return result
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.int16)
-    def linear_light(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.int16)
+    def linear_light(img_1: _np.ndarray, img_2: _np.ndarray):
         """线性光"""
-        return np.clip(img_1 + 2 * img_2 - 255, 0, 255)
+        return _np.clip(img_1 + 2 * img_2 - 255, 0, 255)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def pin_light(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def pin_light(img_1: _np.ndarray, img_2: _np.ndarray):
         """点光"""
-        result = np.zeros(img_1.shape, dtype=img_1.dtype)
+        result = _np.zeros(img_1.shape, dtype=img_1.dtype)
 
         # mask
         mask = img_2 < 128
         img_m1, img_m2 = img_1[mask], img_2[mask]
 
-        result[mask] = np.minimum(img_m1, 2 * img_m2)
+        result[mask] = _np.minimum(img_m1, 2 * img_m2)
 
         # invert_mask
         invert_mask = ~mask
         img_im1, img_im2 = img_1[invert_mask], img_2[invert_mask]
 
-        result[invert_mask] = np.maximum(img_im1, 2 * (img_im2 - 128) + 1)
+        result[invert_mask] = _np.maximum(img_im1, 2 * (img_im2 - 128) + 1)
         return result
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def hard_mix(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def hard_mix(img_1: _np.ndarray, img_2: _np.ndarray):
         """实色混合"""
-        return np.where(
+        return _np.where(
             255 - img_1 < img_2,
-            np.array(255, dtype=img_1.dtype),
-            np.array(0, dtype=img_1.dtype),
+            _np.array(255, dtype=img_1.dtype),
+            _np.array(0, dtype=img_1.dtype),
         )
 
     # 差集模式
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def difference(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def difference(img_1: _np.ndarray, img_2: _np.ndarray):
         """差值"""
-        return np.where(
+        return _np.where(
             img_1 >= img_2, img_1 - img_2, img_2 - img_1
         )  # 等价于np.abs(img_1 - img_2)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def exclusion(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def exclusion(img_1: _np.ndarray, img_2: _np.ndarray):
         """排除"""
         return img_1 + img_2 - img_1 * img_2 // 128
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint8)
-    def subtract(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint8)
+    def subtract(img_1: _np.ndarray, img_2: _np.ndarray):
         """减去"""
-        return np.where(img_1 >= img_2, img_1 - img_2, 0)
+        return _np.where(img_1 >= img_2, img_1 - img_2, 0)
 
     @staticmethod
-    @__set_dtype_for_param_and_return(np.uint16)
-    def divide(img_1: np.ndarray, img_2: np.ndarray):
+    @__set_dtype_for_param_and_return(_np.uint16)
+    def divide(img_1: _np.ndarray, img_2: _np.ndarray):
         """划分"""
-        return np.minimum(255, img_1 * 255 // np.maximum(1, img_2))
+        return _np.minimum(255, img_1 * 255 // _np.maximum(1, img_2))
 
     # 颜色模式(HSL系)
     # todo色相
@@ -443,7 +464,7 @@ class CvOperation:
     基于opencv模块产生的numpy数组, 进行各种操作
     """
 
-    LiteralPosition = Literal["center", "top", "bottom", "left", "right"]
+    LiteralPosition = _typing.Literal["center", "top", "bottom", "left", "right"]
 
     @classmethod
     def put_on_canvas_slice(
@@ -492,8 +513,8 @@ class CvOperation:
     @classmethod
     def put_on_canvas(
         cla,
-        canvas: np.ndarray,
-        img: np.ndarray,
+        canvas: _np.ndarray,
+        img: _np.ndarray,
         align: LiteralPosition = "center",
         mode=None,
     ):
@@ -523,7 +544,7 @@ class CvOperation:
         return canvas
 
     @staticmethod
-    def resize_on_canvas(canvas: np.ndarray, img: np.ndarray) -> np.ndarray:
+    def resize_on_canvas(canvas: _np.ndarray, img: _np.ndarray) -> _np.ndarray:
         """
         将img调整到刚好能放置在canvas上(长或宽一致)
         返回调整后的img
@@ -544,18 +565,18 @@ class CvOperation:
         return _cv2.resize(img, new_shape)
 
     @classmethod
-    def joint(cla, img_array: list[list[np.ndarray]]) -> np.ndarray:
+    def joint(cla, img_array: list[list[_np.ndarray]]) -> _np.ndarray:
         """
         todo 缺少注释
         先列索引后行索引
         """
-        if isinstance(img_array[0], np.ndarray):
+        if isinstance(img_array[0], _np.ndarray):
             img_array = [img_array]
 
         img_array_shape = (len(img_array), len(img_array[0]))
         idx_iter = _itertools.product(range(len(img_array)), range(len(img_array[0])))
         idx_iter = list(
-            filter(lambda x: isinstance(img_array[x[0]][x[1]], np.ndarray), idx_iter)
+            filter(lambda x: isinstance(img_array[x[0]][x[1]], _np.ndarray), idx_iter)
         )
 
         max_shape = [0, 0, 3]
@@ -567,10 +588,10 @@ class CvOperation:
 
         for i, j in idx_iter:
             img = img_array[i][j]
-            canvas = np.full(max_shape, 255)
+            canvas = _np.full(max_shape, 255)
             img_array[i][j] = cla.put_on_canvas(canvas, img)
 
-        big_canvas = np.full(
+        big_canvas = _np.full(
             tuple(i * j for i, j in zip(max_shape, img_array_shape + (1,))), 255
         )
 
@@ -586,7 +607,7 @@ class CvOperation:
 
 class Dhash:
     @staticmethod
-    def calculate(img_path: str | bytes | Path, shape=(64, 65)) -> str:
+    def calculate(img_path: str | bytes | _pathlib.Path, shape=(64, 65)) -> str:
         """
         计算Dhash, 以hex字符串储存结果
 
@@ -599,24 +620,26 @@ class Dhash:
         img = _cv2.resize(img, shape)
         img = _cv2.cvtColor(img, _cv2.COLOR_BGR2GRAY)
 
-        img: np.ndarray = img[:-1, :] > img[1:, :]
+        img: _np.ndarray = img[:-1, :] > img[1:, :]
 
         hash_bool_array = img.flatten("C")
-        hash_bool_array: np.ndarray = hash_bool_array.astype("uint8")
+        hash_bool_array: _np.ndarray = hash_bool_array.astype("uint8")
 
         match hash_bool_array.shape[0] % 8:
             # 补0, 确保数组长度是8的倍数
             case 0:
                 pass
             case padding:
-                hash_bool_array = np.pad(
+                hash_bool_array = _np.pad(
                     hash_bool_array,
                     (0, 8 - padding),
                     "constant",
                     constant_values=(0, 0),
                 )
         # 8 * bool_ -> uint8
-        hex_result: np.ndarray = sum((2**i * hash_bool_array[i::8] for i in range(8)))
+        hex_result: _np.ndarray = sum(
+            (2**i * hash_bool_array[i::8] for i in range(8))
+        )
         # uint8 -> bytes -> hex
         hex_result = hex_result.tobytes().hex()
         return hex_result
@@ -630,26 +653,26 @@ class Dhash:
         - hash字符串应取计算时, resize到相同shape的两者。
         """
 
-        def hex_to_bool_array(hex_string: str) -> np.ndarray:
+        def hex_to_bool_array(hex_string: str) -> _np.ndarray:
             # hex -> bytes -> uint8 -> 8 * bool_
-            item = np.frombuffer(bytes.fromhex(hex_string), dtype="uint8")
-            result = np.zeros(item.shape[0] * 8, dtype="bool_")
+            item = _np.frombuffer(bytes.fromhex(hex_string), dtype="uint8")
+            result = _np.zeros(item.shape[0] * 8, dtype="bool_")
             for i in range(8):
                 # 通过与操作和移位操作将uint8拆开为8个bool_
-                result[i::8] = np.right_shift(
-                    np.bitwise_and(item, np.array(2**i, dtype="uint8")), i
+                result[i::8] = _np.right_shift(
+                    _np.bitwise_and(item, _np.array(2**i, dtype="uint8")), i
                 )
             return result
 
         hash1, hash2 = map(hex_to_bool_array, (hash1, hash2))
-        hash1: np.ndarray
-        hash2: np.ndarray
-        return np.count_nonzero(np.bitwise_xor(hash1, hash2)) / hash1.shape[0]
+        hash1: _np.ndarray
+        hash2: _np.ndarray
+        return _np.count_nonzero(_np.bitwise_xor(hash1, hash2)) / hash1.shape[0]
 
     @classmethod
     def _test_find_similar(cls, folder: str, factor=0.1):
         """查找文件夹中的相似图片"""
-        file_hash: list[tuple[Path, str]] = []
+        file_hash: list[tuple[_pathlib.Path, str]] = []
 
         res_str = []
 
@@ -688,9 +711,9 @@ class __old_Dhash:
         """
         self.resize = resize
         if type(image) == str:
-            self.image: Image.Image = Image.open(image)
+            self.image: _Image.Image = _Image.open(image)
         elif type(image) == bytes:
-            self.image: Image.Image = Image.open(io.BytesIO(image))
+            self.image: _Image.Image = _Image.open(_io.BytesIO(image))
         self._grayscale_Image()
         self.dhash = self._hash_string
 
@@ -741,12 +764,12 @@ class __old_Dhash:
         return bin(difference).count("1")
 
 
-def _test_find_color(bgrimg: np.ndarray, color="#0000ff", sort=True):
+def _test_find_color(bgrimg: _np.ndarray, color="#0000ff", sort=True):
     bgr_color_tuple = (color[1:3], color[3:5], color[5:])[::-1]
     bgr_color_tuple = tuple(map(lambda x: int(x, 16), bgr_color_tuple))
     position_x = []
     position_y = []
-    for i, j in product(range(bgrimg.shape[0]), range(bgrimg.shape[1])):
+    for i, j in _itertools.product(range(bgrimg.shape[0]), range(bgrimg.shape[1])):
         pix = bgrimg[i][j]
         bgr = tuple(int(i) for i in pix)
         if bgr_color_tuple == bgr:
@@ -789,7 +812,7 @@ def _test_get_curve(
     return data
 
 
-def img2gif(imgs: Iterable, output: Path, **kwargs):
+def img2gif(imgs: _typing.Iterable, output: _pathlib.Path, **kwargs):
     """
     图像转gif
     :param imgs: 图片
@@ -797,19 +820,19 @@ def img2gif(imgs: Iterable, output: Path, **kwargs):
     """
     kwargs.setdefault("save_all", True)
     kwargs.setdefault("loop", True)
-    imgs: list[Image.Image] = [Image.open(img) for img in imgs]
+    imgs: list[_Image.Image] = [_Image.open(img) for img in imgs]
 
     imgs[0].save(output, append_images=imgs[1:], **kwargs)
 
 
-def wechat_image_decode(dat_dir: Path, img_dir: Path = None):
+def wechat_image_decode(dat_dir: _pathlib.Path, img_dir: _pathlib.Path = None):
     """
     解码dat或rst文件为图片
     :param dat_dir: dat文件路径
     :param img_dir: 输出图片文件的路径(自动将拓展名更改为对应图片类型)
     """
-    dat_dir = Path(dat_dir)
-    img_dir = Path(img_dir) if img_dir is not None else dat_dir
+    dat_dir = _pathlib.Path(dat_dir)
+    img_dir = _pathlib.Path(img_dir) if img_dir is not None else dat_dir
     img_xor = {
         ".jpeg": (0xFF, 0xD8, 0xFF),
         ".png": (0x89, 0x50, 0x4E),
@@ -818,7 +841,7 @@ def wechat_image_decode(dat_dir: Path, img_dir: Path = None):
 
     with open(dat_dir, "rb") as dat_file_read:
         # 判断图片格式, 判断异或值和扩展名
-        head = np.fromfile(dat_file_read, dtype="uint8", count=3)
+        head = _np.fromfile(dat_file_read, dtype="uint8", count=3)
         for may_suffix, may_xor in img_xor.items():
             may_head = head ^ may_xor
             if may_head[0] == may_head[1] == may_head[2]:  # 三异或值相等, 确定格式
@@ -831,8 +854,10 @@ def wechat_image_decode(dat_dir: Path, img_dir: Path = None):
         img_dir = img_dir.with_suffix(img_suffix)
         # 开始转码
         with open(img_dir, "wb") as img_file_write:
-            for dat_chunk in iter(partial(dat_file_read.read, 1024 * 1024), b""):
-                n_b1 = np.frombuffer(dat_chunk, dtype="uint8")
-                img_block: np.ndarray = n_b1 ^ img_xor
+            for dat_chunk in iter(
+                _functools.partial(dat_file_read.read, 1024 * 1024), b""
+            ):
+                n_b1 = _np.frombuffer(dat_chunk, dtype="uint8")
+                img_block: _np.ndarray = n_b1 ^ img_xor
                 img_block = img_block.tobytes()
                 img_file_write.write(img_block)
