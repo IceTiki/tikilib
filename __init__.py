@@ -3,21 +3,12 @@ Tiki的常用函数库
 """
 
 
-class Counter:
-    """计数器"""
+class LazyImport:
+    def __init__(self, module_name: str):
+        self.__module_name: str = module_name
+        self.__module = None
 
-    data = {}
-
-    def __init__(self, name, start=0):
-        """
-        :params name: 计数器名称
-        :params start: 初始数值
-        """
-        self.name = name
-        if name in self.data:
-            self.data[name] += 1
-        else:
-            self.data[name] = start
-
-    def __str__(self) -> str:
-        return str(self.data[self.name])
+    def __getattr__(self, name: str):
+        if self.__module is None:
+            self.__module = __import__(self.__module_name)
+        return getattr(self.__module, name)
