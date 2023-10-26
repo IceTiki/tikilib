@@ -77,8 +77,10 @@ class CvIo:
 
 class CvBlending:
     """
-    基于opencv模块产生的numpy数组(目前只能处理unsign int8类型的BGR数组), 对图片叠加提供混合模式。
-    混合模式的效果会尽量贴近Photoshop, 但会略有不同(因为数据类型等原因, 会有微量差异)
+    基于opencv模块产生的numpy数组, 对图片叠加提供混合模式。
+        混合模式的效果会尽量贴近Photoshop, 但会略有不同(因为数据类型等原因, 会有微量差异)
+
+    NOTICE 目前只能处理unsign int8类型的BGR数组
 
     参考
     ---
@@ -118,6 +120,7 @@ class CvBlending:
     Adobe的色彩空间
         https://www.zhihu.com/question/62362890/answer/345690499
         PS混合模式中色相、饱和度、颜色、明度4个模式的计算公式是什么？ - 卡米雷特的回答 - 知乎
+    类型检查代码（检查值的范围）
     """
 
     def __set_dtype_for_param_and_return(
@@ -145,6 +148,21 @@ class CvBlending:
         return decorator
 
     @staticmethod
+    def _for_debug_check_range(
+        xrange=(0, 255, 256),
+        yrange=(0, 255, 256),
+        func=lambda x, y: x + y - x * y // 128,
+    ):
+        from tikilib import plot
+
+        X, Y, F = plot.gene_gird(xrange, yrange, func)
+        title = f"min: {np.min(F)}|max: {np.max(F)}"
+        fig, ax = plot.gene_fig_ax()
+        ax: plot.plt.Axes
+        ax.set_title(title)
+        ax.contourf(X, Y, F)
+
+    @staticmethod
     @__set_dtype_for_param_and_return(np.uint8)
     def invert(img: np.ndarray):
         """反相"""
@@ -154,7 +172,42 @@ class CvBlending:
     @__set_dtype_for_param_and_return(np.uint16)
     def transparent(img_1: np.ndarray, img_2: np.ndarray, alpha: np.ndarray):
         """不透明度"""
-        return (img_1 * alpha + img_2 * (255 - alpha)) // 255
+        return (img_1 * (255 - alpha) + img_2 * alpha) // 255
+
+    @staticmethod
+    @__set_dtype_for_param_and_return(np.uint8)
+    def dissolve(canvas: np.ndarray, img: np.ndarray, alpha: np.ndarray):
+        """
+        溶解
+
+        Paramters
+        ---
+        canvas, img : np.ndarray
+            置于底层和置于顶层的图片。
+            - 长宽 : canvas与img的长宽相同。
+            - 通道数(img.shape[-1]) : canvas与img的通道数相同。
+            - 类型(img.dtype) : np.uint8, 取值范围为0~255。
+
+        alpha : np.ndarray
+            img的溶解透明度权重, 0~255分别对应溶解透明度为0~100%。
+            - 长宽 : 与canvas, img相同。
+            - 通道数(img.shape[-1]) : 1。
+            - 类型 : np.uint8, 取值范围为0~255。
+
+        Returns
+        ---
+        img_result : np.ndarray
+            叠加完成的图片
+            - 通道数(img.shape[-1]) : 与canvas, img相同。
+            - 类型 : np.uint8, 取值范围为0~255。
+        """
+        random_mask = np.random.randint(
+            0, 256, canvas.shape[:-1]
+        )  #  np.random.randint生成的随机数不包含高位。
+        mask = random_mask <= alpha
+        channel_n = canvas.shape[-1]
+        mask = np.expand_dims(mask, channel_n - 1).repeat(channel_n, axis=channel_n - 1)
+        return np.where(mask, img, canvas)
 
     # 变暗模式
 
@@ -276,9 +329,16 @@ class CvBlending:
     def hard_light(img_1: np.ndarray, img_2: np.ndarray):
         """强光"""
         result = np.zeros(img_1.shape, dtype=img_1.dtype)
+
+        # mask
         mask = img_2 < 128
         result[mask] = img_1[mask] * img_2[mask] // 128
-        result[~mask] = 255 - (255 - img_1[~mask]) * (255 - img_2[~mask]) // 128
+
+        # invert_mask
+        invert_mask = ~mask
+        result[invert_mask] = (
+            255 - (255 - img_1[invert_mask]) * (255 - img_2[invert_mask]) // 128
+        )
         return result
 
     @staticmethod
@@ -383,8 +443,15 @@ class CvOperation:
     基于opencv模块产生的numpy数组, 进行各种操作
     """
 
+    LiteralPosition = Literal["center", "top", "bottom", "left", "right"]
+
     @classmethod
-    def put_on_canvas_slice(cla, canvas_shape: tuple, img_shape: tuple, align="center"):
+    def put_on_canvas_slice(
+        cla,
+        canvas_shape: tuple[int, int],
+        img_shape: tuple[int, int],
+        align: LiteralPosition = "center",
+    ):
         """
         :params canvas_shape, img_shape: 幕布形状, 图片形状(先高后宽)
         将img叠加在canvas上(返回叠加切片)
@@ -423,13 +490,36 @@ class CvOperation:
         return tuple(result_slice)
 
     @classmethod
-    def put_on_canvas(cla, canvas: np.ndarray, img: np.ndarray, align="center"):
+    def put_on_canvas(
+        cla,
+        canvas: np.ndarray,
+        img: np.ndarray,
+        align: LiteralPosition = "center",
+        mode=None,
+    ):
         """
+        Introduction
+        ---
         将img叠加在canvas上
+
+        Parameters
+        ---
+        canvas : numpy.ndarray
+            底部图片
+        img : numpy.ndarray
+            叠加在上的图片
+        align : str
+            有center/top/bottom/left/right
+        mode : f(x,y)-->numpy.ndarray
+            叠加模式。传入一个二元函数，默认为覆盖模式。
         """
+        mode = mode or (lambda img_1, img_2: img_2)
+
         img = cla.resize_on_canvas(canvas, img)
         canvas = canvas.copy()
-        canvas[*cla.put_on_canvas_slice(canvas.shape, img.shape, align), :] = img
+        canvas[*cla.put_on_canvas_slice(canvas.shape, img.shape, align), :] = mode(
+            canvas[*cla.put_on_canvas_slice(canvas.shape, img.shape, align), :], img
+        )
         return canvas
 
     @staticmethod
@@ -453,6 +543,46 @@ class CvOperation:
             new_shape = (int(img_width / new_scale), canvas_high)
         return _cv2.resize(img, new_shape)
 
+    @classmethod
+    def joint(cla, img_array: list[list[np.ndarray]]) -> np.ndarray:
+        """
+        todo 缺少注释
+        先列索引后行索引
+        """
+        if isinstance(img_array[0], np.ndarray):
+            img_array = [img_array]
+
+        img_array_shape = (len(img_array), len(img_array[0]))
+        idx_iter = _itertools.product(range(len(img_array)), range(len(img_array[0])))
+        idx_iter = list(
+            filter(lambda x: isinstance(img_array[x[0]][x[1]], np.ndarray), idx_iter)
+        )
+
+        max_shape = [0, 0, 3]
+        for i, j in idx_iter:
+            img = img_array[i][j]
+            max_shape[0] = max(max_shape[0], img.shape[0])
+            max_shape[1] = max(max_shape[1], img.shape[1])
+            max_shape[2] = max(max_shape[2], img.shape[2])
+
+        for i, j in idx_iter:
+            img = img_array[i][j]
+            canvas = np.full(max_shape, 255)
+            img_array[i][j] = cla.put_on_canvas(canvas, img)
+
+        big_canvas = np.full(
+            tuple(i * j for i, j in zip(max_shape, img_array_shape + (1,))), 255
+        )
+
+        for i, j in idx_iter:
+            big_canvas[
+                i * max_shape[0] : (i + 1) * max_shape[0],
+                j * max_shape[1] : (j + 1) * max_shape[1],
+                :,
+            ] = img_array[i][j]
+
+        return big_canvas
+
 
 class Dhash:
     @staticmethod
@@ -465,7 +595,7 @@ class Dhash:
         img_path : str | bytes | Path
             图片路径
         """
-        img = CvImg.imread_fromfile(img_path)
+        img = CvIo.load(img_path)
         img = _cv2.resize(img, shape)
         img = _cv2.cvtColor(img, _cv2.COLOR_BGR2GRAY)
 
@@ -611,6 +741,54 @@ class __old_Dhash:
         return bin(difference).count("1")
 
 
+def _test_find_color(bgrimg: np.ndarray, color="#0000ff", sort=True):
+    bgr_color_tuple = (color[1:3], color[3:5], color[5:])[::-1]
+    bgr_color_tuple = tuple(map(lambda x: int(x, 16), bgr_color_tuple))
+    position_x = []
+    position_y = []
+    for i, j in product(range(bgrimg.shape[0]), range(bgrimg.shape[1])):
+        pix = bgrimg[i][j]
+        bgr = tuple(int(i) for i in pix)
+        if bgr_color_tuple == bgr:
+            position_x.append(i)
+            position_y.append(j)
+    if sort and position_x:
+        position_x, position_y = zip(
+            *sorted(list(zip(position_x, position_y)), key=lambda x: x[1])
+        )
+    return (position_x, position_y)
+
+
+def _test_get_curve(
+    imgpath,
+    data_color: dict = {"curve1": "#ff0000"},
+    edge_color="#00ff00",
+    axis_shape=(0.02, 4000),
+):
+    """
+    BGR color tuple
+    """
+    bgrimg = _cv2.imread(imgpath)
+    data = {k: _test_find_color(bgrimg, v) for k, v in data_color.items()}
+    edge_x, edge_y = _test_find_color(bgrimg, edge_color)
+
+    edge_shape = (
+        max(edge_x) - min(edge_x),
+        max(edge_y) - min(edge_y),
+    )
+
+    for k in data.keys():
+        v = data[k]
+        posi_x, posi_y = v
+        data[k] = {
+            "x": [(i - min(edge_y)) / edge_shape[1] * axis_shape[0] for i in posi_y],
+            "y": [
+                (1 - (i - min(edge_x)) / edge_shape[0]) * axis_shape[1] for i in posi_x
+            ],
+        }
+    return data
+
+
 def img2gif(imgs: Iterable, output: Path, **kwargs):
     """
     图像转gif
@@ -619,7 +797,7 @@ def img2gif(imgs: Iterable, output: Path, **kwargs):
     """
     kwargs.setdefault("save_all", True)
     kwargs.setdefault("loop", True)
-    imgs = [Image.open(img) for img in imgs]
+    imgs: list[Image.Image] = [Image.open(img) for img in imgs]
 
     imgs[0].save(output, append_images=imgs[1:], **kwargs)
 
