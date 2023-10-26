@@ -1,13 +1,78 @@
 # 标准库
 import io
 from functools import partial
+from itertools import product
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Union, BinaryIO, Literal
+import typing as _typing
+import itertools as _itertools
 
 # 第三方库
 import numpy as np
 from PIL import Image  # pillow
 import cv2 as _cv2  # opencv-python
+
+# 本库
+from . import system as _t_system
+
+
+class CvIo:
+    @staticmethod
+    def load(
+        file: str | bytes | Path | _typing.BinaryIO, flags: int = _cv2.IMREAD_COLOR
+    ) -> np.ndarray:
+        """
+        cv2.imread的支持中文路径版本
+
+        Parameters
+        ---
+        file : str | bytes | os.PathLike[Any] | _IOProtocol
+            文件, 用np.fromfile读取
+        flags : int, default = 1
+            cv2.IMREAD_UNCHANGED = -1
+            cv2.IMREAD_GRAYSCALE = 0
+            cv2.IMREAD_COLOR = 1
+
+        """
+        cv_img: np.ndarray = _cv2.imdecode(np.fromfile(file, dtype=np.uint8), flags)
+        return cv_img
+
+    @staticmethod
+    def write(
+        img: np.ndarray,
+        file: str | bytes | Path | _typing.BinaryIO,
+        params=None,
+        ext: str = None,
+    ) -> None:
+        """
+        cv2.imwrite的支持中文路径版本
+
+        Parameters
+        ---
+        img : np.ndarray
+            图像
+        file : str | bytes | os.PathLike[Any] | _IOProtocol
+            输出路径, 用np.ndarray.tofile输出
+        params : None
+            imencode的params
+        ext : None
+            扩展名, 如果文件名为str|Path, 则读取其扩展名。否则默认取".png"。
+        """
+        if ext is None:
+            if isinstance(file, (str, Path)):
+                ext = Path(file).suffix
+            else:
+                ext = ".png"
+
+        encode_data: np.ndarray = _cv2.imencode(
+            ext, img, *([params] if params else [])
+        )[1]
+        encode_data.tofile(file)
+
+    @staticmethod
+    def show(img: np.ndarray, winname=None):
+        winname = winname or "image"
+        _cv2.imshow(winname, img)
 
 
 class CvBlending:
