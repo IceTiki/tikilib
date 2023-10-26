@@ -2,7 +2,7 @@ if __name__ == "__main__":
     # 标准库
     import io as _io
     import pathlib as _pathlib
-    import _typing as _typing
+    import typing as _typing
     import itertools as _itertools
     import functools as _functools
 
