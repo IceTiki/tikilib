@@ -1,10 +1,19 @@
-import matplotlib.pyplot as plt
-import numpy as np
+if __name__ == "__main__":
+    import matplotlib.pyplot as _plt
+    import numpy as _np
+    import seaborn as _sns
+else:
+    from . import LazyImport
+
+    __globals = globals()
+    import matplotlib.pyplot as _plt
+    __globals["_np"] = LazyImport("numpy")
+    __globals["_sns"] = LazyImport("seaborn")
 
 
 def chinese_font_support() -> None:
     """matplotlib的中文显示支持的自动设置函数"""
-    plt.rcParams["font.sans-serif"] = ["MicroSoft YaHei"]  # 用来正常显示中文标签
+    _plt.rcParams["font.sans-serif"] = ["MicroSoft YaHei"]  # 用来正常显示中文标签
     # plt.rcParams["axes.unicode_minus"] = False  # 用来正常显示负号
 
 
@@ -12,12 +21,12 @@ def chinese_font_support() -> None:
 
 def set_color_palette_from_seaborn(color_palette_name="Set1"):
     """常用: tab20c, tab20, Set1"""
-    sns.set_palette(sns.color_palette(color_palette_name))
+    _sns.set_palette(_sns.color_palette(color_palette_name))
 
 
 def get_ax_matrix(
     nrows=2, ncols=2, figsize=(12, 8)
-) -> tuple[plt.Figure, np.ndarray | plt.Axes, list[plt.Axes]]:
+) -> tuple[_plt.Figure, _np.ndarray | _plt.Axes, list[_plt.Axes]]:
     """
 
     Returns
@@ -29,7 +38,7 @@ def get_ax_matrix(
         - 行列均大于1时, axs为二维的np.ndarray
         - ax_linear_list为一维的列表
     """
-    fig, axs = plt.subplots(
+    fig, axs = _plt.subplots(
         nrows=nrows, ncols=ncols, figsize=figsize, constrained_layout=True
     )
 

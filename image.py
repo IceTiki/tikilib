@@ -10,26 +10,20 @@ if __name__ == "__main__":
     import numpy as _np
     from PIL import Image as _Image  # pillow
     import cv2 as _cv2  # opencv-python
-
-    # 本库
-    from . import system as _t_system
 else:
     from . import LazyImport
 
+    __globals = globals()
     # 标准库
-    _io = LazyImport("io")
-    _pathlib = LazyImport("pathlib")
-    _typing = LazyImport("typing")
-    _itertools = LazyImport("itertools")
-    _functools = LazyImport("functools")
-
+    __globals["_io"] = LazyImport("io")
+    __globals["_pathlib"] = LazyImport("pathlib")
+    __globals["_typing"] = LazyImport("typing")
+    __globals["_itertools"] = LazyImport("itertools")
+    __globals["_functools"] = LazyImport("functools")
     # 第三方库
-    _np = LazyImport("numpy")
-    _Image = LazyImport("PIL.Image")  # pillow
-    _cv2 = LazyImport("cv2")  # opencv-python
-
-    # 本库
-    _t_system = LazyImport(".system")
+    __globals["_np"] = LazyImport("numpy")
+    __globals["_Image"] = LazyImport("PIL.Image")  # pillow
+    __globals["_cv2"] = LazyImport("cv2")  # opencv-python
 
 
 class CvIo:
@@ -676,9 +670,9 @@ class Dhash:
 
         res_str = []
 
-        for i, item in enumerate(_t_system.Path.traversing_generator(folder)):
-            if not item.is_file():
-                continue
+        for i, item in enumerate(
+            filter(lambda x: x.is_file(), _pathlib.Path(folder).glob("**\\*"))
+        ):
             if item.suffix not in (".jpg", ".jpeg", ".png"):
                 continue
 

@@ -1,9 +1,20 @@
-﻿# 标准库
-import os as _os
-import uuid as _uuid
-import shutil as _shutil
-import pathlib as _pathlib
-import typing as _typing
+﻿if __name__ == "__main__":
+    # 标准库
+    import os as _os
+    import uuid as _uuid
+    import shutil as _shutil
+    import pathlib as _pathlib
+    import typing as _typing
+else:
+    from . import LazyImport
+
+    __globals = globals()
+    # 标准库
+    __globals["_os"] = LazyImport("os")
+    __globals["_uuid"] = LazyImport("uuid")
+    __globals["_shutil"] = LazyImport("shutil")
+    __globals["_pathlib"] = LazyImport("pathlib")
+    __globals["_typing"] = LazyImport("typing")
 
 
 class Path:
@@ -56,8 +67,9 @@ class Path:
         ---
         path : str|pathlib.Path
             遍历的路径
-        topdown : bool
-            是否从根文件夹开始遍历
+        topdown : bool, default = False
+            如果topdown为True, 则先遍历层级少的路径。如果topdown为False, 则先遍历层级多的路径。
+            注意, topdown=False不等于深度遍历, 而类似于广度遍历的逆序。
         path_filter : typing.Callable
             typing.Callable返回绝对路径之前, 先用该过滤器过滤
             过滤器: 接受绝对路径(pathlib.Path), 传出布尔值(bool)

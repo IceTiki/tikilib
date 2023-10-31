@@ -1,4 +1,12 @@
-import numpy as np
+if __name__ == "__main__":
+    import numpy as _np
+    import typing as _typing
+else:
+    from . import LazyImport
+
+    __globals = globals()
+    __globals["_np"] = LazyImport("numpy")
+    __globals["_typing"] = LazyImport("typing")
 
 
 def dichotomy(a=-10, b=10, func=lambda x: x, times=100):
@@ -48,24 +56,26 @@ class MathFunction:
         rho: float = 0,
     ):
         """二维正态分布"""
-        c1 = 1 / (2 * np.pi * sigma_1 * sigma_2 * np.sqrt(1 - rho**2))
+        c1 = 1 / (2 * _np.pi * sigma_1 * sigma_2 * _np.sqrt(1 - rho**2))
         c2 = -1 / (2 * (1 - rho**2))
         c3 = (
             (x - mu_1) ** 2 / sigma_1**2
             + (y - mu_2) ** 2 / sigma_2**2
             - 2 * rho * (x - mu_1) * (y - mu_2) / (sigma_1 * sigma_2)
         )
-        return c1 * np.exp(c2 * c3)
+        return c1 * _np.exp(c2 * c3)
 
     @staticmethod
     def gaussian_distribution(x, sigma: float = 1, mu: float = 0):
         """正态分布"""
-        return np.exp(-((x - mu) ** 2) / 2 * sigma**2) / (np.sqrt(2 * np.pi) * sigma)
+        return _np.exp(-((x - mu) ** 2) / 2 * sigma**2) / (
+            _np.sqrt(2 * _np.pi) * sigma
+        )
 
 
-def normalization(arr: np.ndarray) -> np.ndarray:
+def normalization(arr: _np.ndarray) -> _np.ndarray:
     """依据数组的最大值和最小值归一化"""
-    arr = np.array(arr)
+    arr = _np.array(arr)
     max_, min_ = arr.max(), arr.min()
     arr = arr - min_
     arr = arr if (max_ - min_) == 0 else arr / (max_ - min_)
@@ -87,13 +97,13 @@ def axis_angle2rotation_matrix(axis_vector: np.ndarray, left: bool = False):
         - [三维旋转：欧拉角、四元数、旋转矩阵、轴角之间的转换](https://zhuanlan.zhihu.com/p/45404840)
         - [机器人正运动学---姿态描述之轴角（旋转向量）](https://blog.csdn.net/hitgavin/article/details/106713290)
     """
-    modulus = np.linalg.norm(axis_vector, 2)  # 模长, 即为转动角度
+    modulus = _np.linalg.norm(axis_vector, 2)  # 模长, 即为转动角度
     angle = modulus if left else -modulus
-    cos_a = np.cos(angle)
-    sin_a = np.sin(angle)
+    cos_a = _np.cos(angle)
+    sin_a = _np.sin(angle)
 
     x, y, z = axis_vector / modulus
-    return np.array(
+    return _np.array(
         [
             [
                 (1 - cos_a) * x**2 + cos_a,

@@ -1,18 +1,29 @@
-# 标准库
-import os
-import random
+if __name__ == "__main__":
+    # 标准库
+    import os as _os
+    import random as _random
 
-# 第三方库
-import requests
+    # 第三方库
+    import requests as _requests
+else:
+    from . import LazyImport
+
+    __globals = globals()
+    # 标准库
+    __globals["_os"] = LazyImport("os")
+    __globals["_random"] = LazyImport("random")
+
+    # 第三方库
+    __globals["_requests"] = LazyImport("requests")
 
 # 本库
-from . import library
+from . import library as _t_library
 
 
-class ExResponse(requests.Response):
+class ExResponse(_requests.Response):
     """requests.reqResponse的子类"""
 
-    def __init__(self, res: requests.Response):
+    def __init__(self, res: _requests.Response):
         self.__dict__.update(res.__dict__)
 
     def json(self, *args, **kwargs):
@@ -23,7 +34,7 @@ class ExResponse(requests.Response):
             raise Exception(f"响应内容以json格式解析失败({e})，响应内容:\n\n{self.text}")
 
 
-class ExSession(requests.Session):
+class ExSession(_requests.Session):
     """requests.Session的子类"""
 
     def request(self, *args, **kwargs):
@@ -34,12 +45,12 @@ class ExSession(requests.Session):
 
     def random_user_agent(self):
         """随机生成User-Agent"""
-        agents = library.json_data["user_agents"]
-        self.headers["User-Agent"] = random.choice(agents)
+        agents = _t_library.json_data["user_agents"]
+        self.headers["User-Agent"] = _random.choice(agents)
 
 
 def set_system_proxy(
     http: str = "http://127.0.0.1:7890", https: str = "http://127.0.0.1:7890"
 ):
-    os.environ["http_proxy"] = http
-    os.environ["https_proxy"] = https
+    _os.environ["http_proxy"] = http
+    _os.environ["https_proxy"] = https

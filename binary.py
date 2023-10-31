@@ -1,21 +1,69 @@
-# 标准库
-import pathlib as _pathlib
-import typing as _typing
-import os as _os
-import sqlite3 as _sqlite3
-import traceback as _traceback
-import re as _re
-import functools as _functools
+if __name__ == "__main__":
+    # 标准库
+    import pathlib as _pathlib
+    import typing as _typing
+    import os as _os
+    import sqlite3 as _sqlite3
+    import re as _re
 
-# 第三方库
-import pandas as _panda  # pandas
-import fitz as _fitz  # fitz, PyMuPDF
-import py7zr as _py7zr  # py7zr
-import imghdr as _imghdr
-import numpy as _numpy
+    # 第三方库
+    import pandas as _panda  # pandas
+    import fitz as _fitz  # fitz, PyMuPDF
+    import py7zr as _py7zr  # py7zr
+    import imghdr as _imghdr
+    import numpy as _numpy
+else:
+    from . import LazyImport
 
-# tikilib
-from . import system as _t_system
+    __globals = globals()
+    # 标准库
+    __globals["_pathlib"] = LazyImport("pathlib")
+    __globals["_typing"] = LazyImport("typing")
+    __globals["_os"] = LazyImport("os")
+    __globals["_sqlite3"] = LazyImport("sqlite3")
+    __globals["_re"] = LazyImport("re")
+    # 第三方库
+    __globals["_panda"] = LazyImport("pandas")  # pandas
+    __globals["_fitz"] = LazyImport("fitz")  # fitz, PyMuPDF
+    __globals["_py7zr"] = LazyImport("py7zr")  # py7zr
+    __globals["_imghdr"] = LazyImport("imghdr")
+    __globals["_numpy"] = LazyImport("numpy")
+
+
+class _Utils:
+    def __avoid_iter(path: _pathlib.Path):
+        num = 1
+        while 1:
+            new_path = path.with_stem(path.stem + f"_{num}")
+            yield new_path
+            num += 1
+
+    @staticmethod
+    def avoid_exist_path(
+        path: str | _pathlib.Path,
+        avoid_iter: _typing.Callable[
+            [_pathlib.Path], _typing.Generator[_pathlib.Path, None, None]
+        ] = __avoid_iter,
+    ):
+        """
+        生成当前不存在的路径(避开已存在的路径)
+
+        Paramters
+        ---
+        path : str|pathlib.Path
+            初始路径
+        avoid_iter : typing.Callable[[pathlib.Path], typing.Generator[pathlib.Path, None, None]], default = __avoid_iter
+            路径生成器, 默认生成器为在原路径的文件名后面加"_数字"
+        """
+        path = _pathlib.Path(path)
+        if not path.exists():
+            return path
+
+        for new_path in avoid_iter(path):
+            if not new_path.exists():
+                return new_path
+        else:
+            raise OSError("未能找到合适的空闲路径")
 
 
 class PandasExcelSheet:
@@ -204,7 +252,7 @@ class MuPdf:
         output_pdf_path = (
             _pathlib.Path(output_pdf_path)
             if output_pdf_path is not None
-            else _t_system.Path.avoid_exist_path(
+            else _Utils.avoid_exist_path(
                 resource_pdf_path.with_stem(resource_pdf_path.stem + "_extracted")
             )
         )

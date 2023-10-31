@@ -1,9 +1,20 @@
-# 标准库
-import hashlib as _hashlib
-import os
+if __name__ == "__main__":
+    # 标准库
+    import hashlib as _hashlib
+    import os as _os
 
-# 第三方库
-from Crypto.Cipher import AES  # pycryptodome
+    # 第三方库
+    from Crypto.Cipher import AES as _AES  # pycryptodome
+else:
+    from . import LazyImport
+
+    __globals = globals()
+    # 标准库
+    __globals["_hashlib"] = LazyImport("hashlib")
+    __globals["_os"] = LazyImport("os")
+
+    # 第三方库
+    __globals["_AES"] = LazyImport("Crypto.Cipher", ["AES"]).AES  # pycryptodome
 
 
 class Hash:
@@ -50,7 +61,7 @@ class Hash:
             3.512   sha3-512
         """
         hashObj = Hash.__gene_hash_obj(hash_type)
-        if os.path.isfile(path):
+        if _os.path.isfile(path):
             try:
                 with open(path, "rb") as f:
                     for byte_block in iter(lambda: f.read(1048576), b""):
@@ -136,7 +147,7 @@ class SimpleAES_StringCrypto:
 
     def encrypt(self, text: str):
         """加密"""
-        cipher = AES.new(self.key, AES.MODE_CBC, self.iv)
+        cipher = _AES.new(self.key, _AES.MODE_CBC, self.iv)
 
         text = self.pkcs7padding(text)  # 填充
         text = text.encode(self.charset)  # 编码
@@ -146,7 +157,7 @@ class SimpleAES_StringCrypto:
 
     def decrypt(self, text) -> str:
         """解密"""
-        cipher = AES.new(self.key, AES.MODE_CBC, self.iv)
+        cipher = _AES.new(self.key, _AES.MODE_CBC, self.iv)
 
         text = bytes.fromhex(text)  # Hex解码
         text = cipher.decrypt(text)  # 解密
