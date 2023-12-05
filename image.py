@@ -22,7 +22,7 @@ else:
     __globals["_functools"] = LazyImport("functools")
     # 第三方库
     __globals["_np"] = LazyImport("numpy")
-    __globals["_Image"] = LazyImport("PIL.Image")  # pillow
+    __globals["_Image"] = LazyImport("PIL", ["Image"]).Image  # pillow
     __globals["_cv2"] = LazyImport("cv2")  # opencv-python
 
 

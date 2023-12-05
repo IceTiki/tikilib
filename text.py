@@ -11,7 +11,7 @@ else:
     from . import LazyImport
 
     # 标准库
-    _json = LazyImport("_json")
+    _json = LazyImport("json")
     _random = LazyImport("random")
     _itertools = LazyImport("itertools")
     _typing = LazyImport("typing")
