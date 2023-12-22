@@ -59,6 +59,8 @@ class Path:
         path: _typing.Union[str, _pathlib.Path],
         topdown: bool = False,
         path_filter: _typing.Callable[[_pathlib.Path], bool] = lambda x: True,
+        yield_file: bool = True,
+        yield_dir: bool = True,
     ):
         """
         遍历路径中的文件或文件夹的生成器(生成绝对路径)
@@ -73,6 +75,10 @@ class Path:
         path_filter : typing.Callable
             typing.Callable返回绝对路径之前, 先用该过滤器过滤
             过滤器: 接受绝对路径(pathlib.Path), 传出布尔值(bool)
+        yield_file : bool, default = True
+            是否生成文件路径
+        yield_dir : bool, default = True
+            是否生成文件夹路径
 
         Yields
         ---
@@ -81,7 +87,17 @@ class Path:
         """
         for root, dirs, files in _os.walk(path, topdown=topdown):
             root = _pathlib.Path(root)
-            for name in files + dirs:
+
+            if yield_dir and yield_file:
+                names = files + dirs
+            elif yield_file:
+                names = files
+            elif yield_dir:
+                names = dirs
+            else:
+                names = []
+
+            for name in names:
                 item_dir: _pathlib.Path = root / name
                 item_dir = item_dir.absolute()
                 if path_filter(item_dir):
@@ -128,8 +144,12 @@ class Path:
         to_dir = _pathlib.Path(to_dir).absolute()
 
         if iter_file:
-            for from_file in cla.traversing_typing.Generator(
-                from_dir, True, path_filter=path_filter
+            for from_file in cla.traversing_generator(
+                from_dir,
+                True,
+                path_filter=path_filter,
+                yield_file=True,
+                yield_dir=False,
             ):
                 from_file = _pathlib.Path(from_file)
                 to_file = to_dir / from_file.relative_to(from_dir)
@@ -139,8 +159,12 @@ class Path:
 
                 yield (from_file, to_file)
         else:
-            for from_folder in cla.traversing_typing.Generator(
-                from_dir, False, path_filter=path_filter
+            for from_folder in cla.traversing_generator(
+                from_dir,
+                True,
+                path_filter=lambda x: path_filter(x) and x.is_dir(),
+                yield_file=False,
+                yield_dir=True,
             ):
                 from_folder = _pathlib.Path(from_folder)
                 to_folder = to_dir / from_folder.relative_to(from_dir)
