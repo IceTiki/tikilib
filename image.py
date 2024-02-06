@@ -29,7 +29,7 @@ else:
 class CvIo:
     @staticmethod
     def load(
-        file: str | bytes | _pathlib.Path | _typing.BinaryIO,
+        file: _typing.Union[str, bytes, _pathlib.Path, _typing.BinaryIO],
         flags: int = _cv2.IMREAD_COLOR,
     ) -> _np.ndarray:
         """
@@ -51,7 +51,7 @@ class CvIo:
     @staticmethod
     def write(
         img: _np.ndarray,
-        file: str | bytes | _pathlib.Path | _typing.BinaryIO,
+        file: _typing.Union[str, bytes, _pathlib.Path, _typing.BinaryIO],
         params=None,
         ext: str = None,
     ) -> None:
@@ -559,7 +559,7 @@ class CvOperation:
         return _cv2.resize(img, new_shape)
 
     @classmethod
-    def joint(cla, img_array: list[list[_np.ndarray]]) -> _np.ndarray:
+    def joint(cla, img_array: _typing.List[_typing.List[_np.ndarray]]) -> _np.ndarray:
         """
         todo 缺少注释
         先列索引后行索引
@@ -666,7 +666,7 @@ class Dhash:
     @classmethod
     def _test_find_similar(cls, folder: str, factor=0.1):
         """查找文件夹中的相似图片"""
-        file_hash: list[tuple[_pathlib.Path, str]] = []
+        file_hash: _typing.List[tuple[_pathlib.Path, str]] = []
 
         res_str = []
 
@@ -814,8 +814,7 @@ def img2gif(imgs: _typing.Iterable, output: _pathlib.Path, **kwargs):
     """
     kwargs.setdefault("save_all", True)
     kwargs.setdefault("loop", True)
-    imgs: list[_Image.Image] = [_Image.open(img) for img in imgs]
-
+    imgs: _typing.List[_Image.Image] = [_Image.open(img) for img in imgs]
     imgs[0].save(output, append_images=imgs[1:], **kwargs)
 
 
