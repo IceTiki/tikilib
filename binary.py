@@ -13,21 +13,27 @@ if __name__ == "__main__":
     import imghdr as _imghdr
     import numpy as _numpy
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    __globals["_pathlib"] = LazyImport("pathlib")
-    __globals["_typing"] = LazyImport("typing")
-    __globals["_os"] = LazyImport("os")
-    __globals["_sqlite3"] = LazyImport("sqlite3")
-    __globals["_re"] = LazyImport("re")
+    import pathlib as _pathlib
+    import typing as _typing
+    import os as _os
+    import sqlite3 as _sqlite3
+    import re as _re
+
     # 第三方库
-    __globals["_panda"] = LazyImport("pandas")  # pandas
-    __globals["_fitz"] = LazyImport("fitz")  # fitz, PyMuPDF
-    __globals["_py7zr"] = LazyImport("py7zr")  # py7zr
-    __globals["_imghdr"] = LazyImport("imghdr")
-    __globals["_numpy"] = LazyImport("numpy")
+    import pandas as _panda  # pandas
+    import fitz as _fitz  # fitz, PyMuPDF
+    import py7zr as _py7zr  # py7zr
+    import imghdr as _imghdr
+    import numpy as _numpy
+    """,
+    )
 
 
 class _Utils:

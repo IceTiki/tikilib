@@ -10,21 +10,28 @@ if __name__ == "__main__":
     import numpy as _np
     from PIL import Image as _Image  # pillow
     import cv2 as _cv2  # opencv-python
+    import scipy as _scipy
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    __globals["_io"] = LazyImport("io")
-    __globals["_pathlib"] = LazyImport("pathlib")
-    __globals["_typing"] = LazyImport("typing")
-    __globals["_itertools"] = LazyImport("itertools")
-    __globals["_functools"] = LazyImport("functools")
-    # 第三方库
-    __globals["_np"] = LazyImport("numpy")
-    __globals["_Image"] = LazyImport("PIL", ["Image"]).Image  # pillow
-    __globals["_cv2"] = LazyImport("cv2")  # opencv-python
+    import io as _io
+    import pathlib as _pathlib
+    import typing as _typing
+    import itertools as _itertools
+    import functools as _functools
 
+    # 第三方库
+    import numpy as _np
+    from PIL import Image as _Image  # pillow
+    import cv2 as _cv2  # opencv-python
+    import scipy as _scipy
+    """,
+    )
 
 class CvIo:
     @staticmethod

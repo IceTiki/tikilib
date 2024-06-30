@@ -8,18 +8,22 @@ if __name__ == "__main__":
     import traceback as _traceback
     import pathlib as _pathlib
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    __globals["_io"] = LazyImport("io")
-    __globals["_os"] = LazyImport("os")
-    __globals["_sys"] = LazyImport("sys")
-    __globals["_imp"] = LazyImport("imp")
-    __globals["_codecs"] = LazyImport("codecs")
-    __globals["_traceback"] = LazyImport("traceback")
-    __globals["_pathlib"] = LazyImport("pathlib")
-
+    import io as _io
+    import os as _os
+    import sys as _sys
+    import imp as _imp
+    import codecs as _codecs
+    import traceback as _traceback
+    import pathlib as _pathlib
+    """,
+    )
 
 def enhance_init(work_dir=__file__, python_version_require=0, check_module_list=[]):
     """

@@ -2,11 +2,16 @@ if __name__ == "__main__":
     import numpy as _np
     import typing as _typing
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
-    __globals["_np"] = LazyImport("numpy")
-    __globals["_typing"] = LazyImport("typing")
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
+    import numpy as _np
+    import typing as _typing
+    """,
+    )
 
 
 def dichotomy(a=-10, b=10, func=lambda x: x, times=100):
@@ -80,6 +85,8 @@ def normalization(arr: _np.ndarray) -> _np.ndarray:
     arr = arr - min_
     arr = arr if (max_ - min_) == 0 else arr / (max_ - min_)
     return arr
+
+
 def axis_angle2rotation_matrix(axis_vector: np.ndarray, left: bool = False):
     """
     将「轴角」转换为「旋转矩阵」

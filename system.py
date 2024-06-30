@@ -6,15 +6,20 @@
     import pathlib as _pathlib
     import typing as _typing
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    __globals["_os"] = LazyImport("os")
-    __globals["_uuid"] = LazyImport("uuid")
-    __globals["_shutil"] = LazyImport("shutil")
-    __globals["_pathlib"] = LazyImport("pathlib")
-    __globals["_typing"] = LazyImport("typing")
+    import os as _os
+    import uuid as _uuid
+    import shutil as _shutil
+    import pathlib as _pathlib
+    import typing as _typing
+    """,
+    )
 
 
 class Path:

@@ -6,15 +6,20 @@ if __name__ == "__main__":
     # 第三方库
     import requests as _requests
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    __globals["_os"] = LazyImport("os")
-    __globals["_random"] = LazyImport("random")
+    import os as _os
+    import random as _random
 
     # 第三方库
-    __globals["_requests"] = LazyImport("requests")
+    import requests as _requests
+    """,
+    )
 
 # 本库
 from . import library as _t_library

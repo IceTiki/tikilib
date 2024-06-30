@@ -8,16 +8,22 @@ if __name__ == "__main__":
     # 第三方库
     import yaml as _yaml  # pyyaml
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    _json = LazyImport("json")
-    _random = LazyImport("random")
-    _itertools = LazyImport("itertools")
-    _typing = LazyImport("typing")
+    import json as _json
+    import random as _random
+    import itertools as _itertools
+    import typing as _typing
 
     # 第三方库
-    _yaml = LazyImport("yaml")  # pyyaml
+    import yaml as _yaml  # pyyaml
+    """,
+    )
 
 
 class YamlFile:

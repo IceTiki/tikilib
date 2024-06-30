@@ -1,14 +1,19 @@
 if __name__ == "__main__":
-    import matplotlib.pyplot as _plt
+    from matplotlib import pyplot as _plt
     import numpy as _np
     import seaborn as _sns
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
-    import matplotlib.pyplot as _plt
-    __globals["_np"] = LazyImport("numpy")
-    __globals["_sns"] = LazyImport("seaborn")
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
+    from matplotlib import pyplot as _plt
+    import numpy as _np
+    import seaborn as _sns
+    """,
+    )
 
 
 def chinese_font_support() -> None:

@@ -2,23 +2,32 @@ if __name__ == "__main__":
     # 标准库
     import hashlib as _hashlib
     import os as _os
+    import typing as _typing
 
     # 第三方库
     from Crypto.Cipher import AES as _AES  # pycryptodome
 else:
-    from . import LazyImport
+    from . import BatchLazyImport
 
-    __globals = globals()
+    BatchLazyImport(
+        globals(),
+        locals(),
+        """
     # 标准库
-    __globals["_hashlib"] = LazyImport("hashlib")
-    __globals["_os"] = LazyImport("os")
+    import hashlib as _hashlib
+    import os as _os
+    import typing as _typing
 
     # 第三方库
-    __globals["_AES"] = LazyImport("Crypto.Cipher", ["AES"]).AES  # pycryptodome
+    from Crypto.Cipher import AES as _AES  # pycryptodome
+    """,
+    )
 
 
 class Hash:
     """Hashing String And File"""
+
+    _t_hash = _typing.Literal[1, 224, 256, 384, 512, 5] | float
 
     @staticmethod
     def __gene_hash_obj(hash_type):
@@ -46,7 +55,7 @@ class Hash:
             raise Exception("类型错误, 初始化失败")
 
     @staticmethod
-    def file_hash(path, hash_type):
+    def file_hash(path, hash_type: _t_hash):
         """计算文件哈希
         :param path: 文件路径
         :param hash_type: 哈希算法类型
@@ -73,7 +82,11 @@ class Hash:
             raise Exception('路径错误, 没有指向文件: "%s"')
 
     @staticmethod
-    def str_hash(str_: str, hash_type, charset="utf-8"):
+    def str_hash(
+        str_: str,
+        hash_type: _t_hash,
+        charset="utf-8",
+    ):
         """计算字符串哈希
         :param str_: 字符串
         :param hash_type: 哈希算法类型
@@ -94,7 +107,7 @@ class Hash:
         return hashObj.hexdigest()
 
     @staticmethod
-    def bytes_hash(bytes_: bytes, hash_type):
+    def bytes_hash(bytes_: bytes, hash_type: _t_hash):
         """计算字节串哈希
         :param bytes_: 字节串
         :param hash_type: 哈希算法类型
@@ -145,7 +158,7 @@ class SimpleAES_StringCrypto:
         self.key = self.key.encode(self.charset)
         self.iv = self.iv.encode(self.charset)
 
-    def encrypt(self, text: str):
+    def encrypt(self, text: str) -> str:
         """加密"""
         cipher = _AES.new(self.key, _AES.MODE_CBC, self.iv)
 
@@ -155,7 +168,7 @@ class SimpleAES_StringCrypto:
         text = text.hex()  # Hex编码
         return text
 
-    def decrypt(self, text) -> str:
+    def decrypt(self, text: str) -> str:
         """解密"""
         cipher = _AES.new(self.key, _AES.MODE_CBC, self.iv)
 
